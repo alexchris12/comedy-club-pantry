@@ -193,6 +193,8 @@ export default function App() {
   const [latestOrder, setLatestOrder] = useState(null);
   const [hasLoadedOrders, setHasLoadedOrders] = useState(false);
   const [newOrderAlert, setNewOrderAlert] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  
 
   const isAdminPage =
   window.location.pathname === "/admin" ||
@@ -244,16 +246,19 @@ const [isAdminUnlocked, setIsAdminUnlocked] = useState(
       if (
         isAdminPage &&
         isAdminUnlocked &&
-        hasLoadedOrders &&
+       hasLoadedOrders &&
         hasNewOrder
       ) {
-        playNewOrderSound();
-        setNewOrderAlert(true);
+     if (soundEnabled) {
+    playNewOrderSound();
+     }
 
-        setTimeout(() => {
-          setNewOrderAlert(false);
-        }, 4000);
-      }
+     setNewOrderAlert(true);
+
+      setTimeout(() => {
+      setNewOrderAlert(false);
+    }, 4000);
+    }
 
       return liveOrders;
     });
@@ -262,7 +267,7 @@ const [isAdminUnlocked, setIsAdminUnlocked] = useState(
   });
 
   return () => unsubscribe();
-}, [isAdminPage, isAdminUnlocked, hasLoadedOrders]);
+}, [isAdminPage, isAdminUnlocked, hasLoadedOrders, soundEnabled]);
 
   const categories = ["All", ...new Set(menuItems.map((item) => item.category))];
 
@@ -429,6 +434,33 @@ const [isAdminUnlocked, setIsAdminUnlocked] = useState(
   } else {
     alert("Wrong PIN");
   }
+}
+function enableSound() {
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+
+  gainNode.gain.setValueAtTime(0.001, audioContext.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(
+    0.3,
+    audioContext.currentTime + 0.02
+  );
+  gainNode.gain.exponentialRampToValueAtTime(
+    0.001,
+    audioContext.currentTime + 0.25
+  );
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  oscillator.start();
+  oscillator.stop(audioContext.currentTime + 0.26);
+
+  setSoundEnabled(true);
 }
 if (isAdminPage && !isAdminUnlocked) {
   return (
@@ -684,6 +716,13 @@ if (isAdminPage && !isAdminUnlocked) {
           <div className="newOrderAlert">
           🔔 New order received
           </div>
+            )}
+
+    {isAdminPage && isAdminUnlocked && !soundEnabled && (
+      <button className="enableSoundBtn" onClick={enableSound}>
+        🔔 Enable Order Sound
+      </button>
+    )}
 )}
           <div className="adminHeader">
             <div>

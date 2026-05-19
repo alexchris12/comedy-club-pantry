@@ -709,3 +709,14 @@ button {
 .paymentBox h2 {
   color: #4a1409;
 }
+.enableSoundBtn {
+  width: 100%;
+  border: 0;
+  border-radius: 18px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  background: #4a1409;
+  color: #fff7ed;
+  font-weight: 950;
+  font-size: 15px;
+}
