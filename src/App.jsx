@@ -175,7 +175,10 @@ function getItemIcon(item) {
 
 export default function App() {
   const [view, setView] = useState(
-  window.location.pathname === "/admin" ? "admin" : "menu"
+  window.location.pathname === "/admin" ||
+    window.location.search.includes("admin=1")
+    ? "admin"
+    : "menu"
 );
   const [cart, setCart] = useState({});
   const [search, setSearch] = useState("");
@@ -191,7 +194,9 @@ export default function App() {
   const [hasLoadedOrders, setHasLoadedOrders] = useState(false);
   const [newOrderAlert, setNewOrderAlert] = useState(false);
 
-  const isAdminPage = window.location.pathname === "/admin";
+  const isAdminPage =
+  window.location.pathname === "/admin" ||
+  window.location.search.includes("admin=1");
   const ADMIN_PIN = "6969";
 const [pinInput, setPinInput] = useState("");
 const [isAdminUnlocked, setIsAdminUnlocked] = useState(
