@@ -2,7 +2,7 @@
   "name": "Penfry Admin",
   "short_name": "Penfry",
   "description": "Penfry pantry ordering and admin dashboard",
-  "start_url": "/admin",
+  "start_url": "/?admin=1",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f3eee8",
