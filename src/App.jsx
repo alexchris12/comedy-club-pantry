@@ -723,7 +723,7 @@ if (isAdminPage && !isAdminUnlocked) {
         🔔 Enable Order Sound
       </button>
     )}
-)}
+
           <div className="adminHeader">
             <div>
               <p className="eyebrow">Staff Dashboard</p>
