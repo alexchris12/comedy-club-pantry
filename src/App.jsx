@@ -341,8 +341,19 @@ const [isAdminUnlocked, setIsAdminUnlocked] = useState(
     };
 
     try {
-      await addDoc(collection(db, "orders"), order);
+  await addDoc(collection(db, "orders"), order);
 
+  try {
+    await fetch("/api/send-telegram", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(order),
+    });
+  } catch (telegramError) {
+    console.error("Telegram notification failed:", telegramError);
+  }
       setLatestOrder({
         ...order,
         createdAt: new Date().toISOString(),
