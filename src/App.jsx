@@ -226,6 +226,7 @@ export default function App() {
 
   const [orders, setOrders] = useState([]);
   const [itemAvailability, setItemAvailability] = useState({});
+  const [itemStock, setItemStock] = useState({});
   const [latestOrder, setLatestOrder] = useState(null);
   const [trackOrderId, setTrackOrderId] = useState(initialOrderId.toUpperCase());
   const [trackSearchInput, setTrackSearchInput] = useState(
@@ -332,6 +333,19 @@ export default function App() {
 
     return () => unsubscribe();
   }, []);
+  useEffect(() => {
+  const unsubscribe = onSnapshot(collection(db, "itemStock"), (snapshot) => {
+    const stockData = {};
+
+    snapshot.docs.forEach((document) => {
+      stockData[document.id] = Number(document.data().quantity || 0);
+    });
+
+    setItemStock(stockData);
+  });
+
+  return () => unsubscribe();
+}, []);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "menuItems"), (snapshot) => {
@@ -490,13 +504,21 @@ const dateFilteredOrders = orders.filter((order) => {
   );
 
   function addItem(id) {
-    if (!isItemAvailable(id)) return;
+  if (!isItemAvailable(id)) return;
 
-    setCart((prev) => ({
-      ...prev,
-      [id]: (prev[id] || 0) + 1,
-    }));
+  const currentQty = cart[id] || 0;
+  const stock = getItemStock(id);
+
+  if (hasStockLimit(id) && currentQty >= stock) {
+    alert("Only limited quantity available.");
+    return;
   }
+
+  setCart((prev) => ({
+    ...prev,
+    [id]: (prev[id] || 0) + 1,
+  }));
+}
 
   function removeItem(id) {
     setCart((prev) => {
@@ -514,9 +536,23 @@ const dateFilteredOrders = orders.filter((order) => {
     });
   }
 
-  function isItemAvailable(itemId) {
-    return itemAvailability[itemId] !== false;
+  function getItemStock(itemId) {
+  return itemStock[itemId];
+}
+
+function hasStockLimit(itemId) {
+  return typeof itemStock[itemId] === "number";
+}
+
+function isItemAvailable(itemId) {
+  if (itemAvailability[itemId] === false) return false;
+
+  if (hasStockLimit(itemId)) {
+    return getItemStock(itemId) > 0;
   }
+
+  return true;
+}
 
   function openTracking(orderId) {
     const normalizedOrderId = orderId.toUpperCase();
@@ -562,6 +598,20 @@ const dateFilteredOrders = orders.filter((order) => {
 
     try {
       await addDoc(collection(db, "orders"), order);
+      const stockUpdatePromises = cartItems
+  .filter((item) => hasStockLimit(item.id))
+  .map((item) =>
+    setDoc(
+      doc(db, "itemStock", item.id),
+      {
+        quantity: Math.max(0, getItemStock(item.id) - item.qty),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    )
+  );
+
+await Promise.all(stockUpdatePromises);
 
       try {
         await fetch("/api/send-telegram", {
@@ -731,6 +781,51 @@ const dateFilteredOrders = orders.filter((order) => {
       alert("Could not update menu item.");
     }
   }
+  async function updateItemStock(item) {
+  const currentStock = hasStockLimit(item.id) ? String(getItemStock(item.id)) : "";
+
+  const stockInput = window.prompt(
+    `Set stock quantity for ${item.name}. Leave blank to remove stock limit.`,
+    currentStock
+  );
+
+  if (stockInput === null) return;
+
+  if (stockInput.trim() === "") {
+    try {
+      await deleteDoc(doc(db, "itemStock", item.id));
+      alert("Stock limit removed.");
+    } catch (error) {
+      console.error("Error removing stock:", error);
+      alert("Could not remove stock limit.");
+    }
+
+    return;
+  }
+
+  const quantity = Number(stockInput);
+
+  if (!Number.isInteger(quantity) || quantity < 0) {
+    alert("Please enter a valid whole number.");
+    return;
+  }
+
+  try {
+    await setDoc(
+      doc(db, "itemStock", item.id),
+      {
+        quantity,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    alert("Stock updated.");
+  } catch (error) {
+    console.error("Error updating stock:", error);
+    alert("Could not update stock.");
+  }
+}
 
   async function addNewMenuItem() {
     const name = window.prompt("New item name:");
@@ -1035,7 +1130,12 @@ const dateFilteredOrders = orders.filter((order) => {
                     <p>{item.desc}</p>
 
                     <div className="foodBottom">
-                      <span>{item.category}</span>
+                     <span>
+  {item.category}
+  {hasStockLimit(item.id) && isItemAvailable(item.id)
+    ? ` • ${getItemStock(item.id)} left`
+    : ""}
+</span>
 
                       {!isItemAvailable(item.id) ? (
                         <button className="soldOutBtn" disabled>
@@ -1470,6 +1570,12 @@ const dateFilteredOrders = orders.filter((order) => {
                           onClick={() => editMenuItem(item)}
                         >
                           Edit
+                        </button>
+                        <button
+                          className="stockBtn"
+                          onClick={() => updateItemStock(item)}
+                        >
+                          Stock
                         </button>
 
                         {item.custom && (

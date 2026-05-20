@@ -1350,3 +1350,13 @@ button {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+.stockBtn {
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 950;
+  white-space: nowrap;
+  background: #854d0e;
+  color: #fff7ed;
+}
