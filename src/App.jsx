@@ -134,7 +134,17 @@ const DEFAULT_MENU_ITEMS = [
 ];
 
 const ORDER_STEPS = ["New", "Preparing", "Ready", "Delivered"];
+const ORDER_STATUS_MESSAGES = {
+  New: "Your order has been received.",
+  Preparing: "The pantry is preparing your order.",
+  Ready: "Your order is ready for pickup.",
+  Delivered: "Your order has been completed.",
+  Cancelled: "This order was cancelled.",
+};
 
+function getTrackingMessage(status) {
+  return ORDER_STATUS_MESSAGES[status] || "Checking order status...";
+}
 function formatPrice(amount) {
   return `₹${Number(amount || 0).toLocaleString("en-IN")}`;
 }
@@ -1346,15 +1356,35 @@ await Promise.all(stockUpdatePromises);
           ) : (
             <div className="trackingCard">
               <div className="trackingTop">
-                <div>
-                  <small>{trackedOrder.time}</small>
-                  <h3>{trackedOrder.id}</h3>
-                  <p>{trackedOrder.customer?.name}</p>
-                </div>
-                <span className={`status ${trackedOrder.status}`}>
-                  {trackedOrder.status}
-                </span>
-              </div>
+  <div>
+    <small>{trackedOrder.time}</small>
+    <h3>{trackedOrder.id}</h3>
+    <p>{trackedOrder.customer?.name}</p>
+  </div>
+
+  <span className={`status ${trackedOrder.status}`}>
+    {trackedOrder.status}
+  </span>
+</div>
+
+<div className={`trackingStatusHero ${trackedOrder.status}`}>
+  <span>
+    {trackedOrder.status === "Ready"
+      ? "✅"
+      : trackedOrder.status === "Delivered"
+      ? "🎉"
+      : trackedOrder.status === "Cancelled"
+      ? "⚠️"
+      : trackedOrder.status === "Preparing"
+      ? "👨‍🍳"
+      : "🔔"}
+  </span>
+
+  <div>
+    <h2>{trackedOrder.status}</h2>
+    <p>{getTrackingMessage(trackedOrder.status)}</p>
+  </div>
+</div>
 
               <div className="trackSteps">
                 {ORDER_STEPS.map((step) => {
@@ -1401,6 +1431,15 @@ await Promise.all(stockUpdatePromises);
                 </div>
                 <strong>{formatPrice(trackedOrder.total)}</strong>
               </div>
+              <div className="showPantryBox">
+  <small>Show this at the counter</small>
+  <strong>{trackedOrder.id}</strong>
+  <p>
+    {trackedOrder.status === "Ready"
+      ? "Your order is ready. Please show this ID to collect it."
+      : "Keep this order ID handy for pickup or support."}
+  </p>
+</div>
             </div>
           )}
 
