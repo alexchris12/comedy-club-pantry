@@ -2422,3 +2422,138 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+/* === Order card content hierarchy polish === */
+
+.orderCard,
+.kitchenOrderCard {
+  border: 1px solid rgba(241, 90, 0, 0.18);
+  box-shadow: 0 12px 30px rgba(74, 20, 9, 0.06);
+}
+
+.orderTop,
+.kitchenOrderTop {
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(74, 20, 9, 0.1);
+}
+
+.orderTop small,
+.kitchenOrderTop small {
+  display: inline-block;
+  margin-bottom: 4px;
+  color: rgba(74, 20, 9, 0.55);
+  font-weight: 900;
+}
+
+.orderTop h3,
+.kitchenOrderTop h3 {
+  margin: 0;
+  color: #4a1409;
+  font-size: 18px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.orderTop p,
+.kitchenOrderTop p {
+  margin: 6px 0 0;
+  color: rgba(74, 20, 9, 0.65);
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.orderItems,
+.kitchenItems {
+  margin-top: 14px;
+}
+
+.orderItems div,
+.kitchenItems div {
+  border-radius: 14px;
+}
+
+.orderItems span,
+.kitchenItems span {
+  font-weight: 850;
+}
+
+.orderItems strong,
+.kitchenItems strong {
+  font-weight: 1000;
+}
+
+.paymentStatus {
+  border: 1px solid rgba(74, 20, 9, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.paymentStatus small {
+  color: rgba(74, 20, 9, 0.52);
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.paymentStatus p {
+  margin-top: 5px;
+  color: #4a1409;
+  font-size: 15px;
+  font-weight: 950;
+}
+
+.paymentStatus strong {
+  color: #4a1409;
+  font-size: 20px;
+}
+
+.status {
+  white-space: nowrap;
+  font-weight: 950;
+}
+
+.adminFeedbackBox,
+.lowRatedList,
+.adminPaymentProofBox {
+  border: 1px solid rgba(241, 90, 0, 0.16);
+}
+
+@media (max-width: 560px) {
+  .orderTop,
+  .kitchenOrderTop {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .status {
+    align-self: flex-start;
+  }
+
+  .orderTop h3,
+  .kitchenOrderTop h3 {
+    font-size: 16px;
+  }
+}
+/* === Fix payment status text visibility === */
+
+.orderCard .paymentStatus,
+.kitchenOrderCard .paymentStatus {
+  background: #4a1409;
+  color: #fff7ed;
+  border: 0;
+}
+
+.orderCard .paymentStatus small,
+.kitchenOrderCard .paymentStatus small {
+  color: rgba(255, 247, 237, 0.72);
+}
+
+.orderCard .paymentStatus p,
+.kitchenOrderCard .paymentStatus p {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 950;
+}
+
+.orderCard .paymentStatus strong,
+.kitchenOrderCard .paymentStatus strong {
+  color: #ffffff;
+}
