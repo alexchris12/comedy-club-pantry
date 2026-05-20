@@ -145,6 +145,55 @@ const ORDER_STATUS_MESSAGES = {
 function getTrackingMessage(status) {
   return ORDER_STATUS_MESSAGES[status] || "Checking order status...";
 }
+function compressImageFile(file, maxWidth = 900, quality = 0.62) {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      reject(new Error("No file selected."));
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      reject(new Error("Please upload an image file."));
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const image = new Image();
+
+      image.onload = () => {
+        const scale = Math.min(1, maxWidth / image.width);
+        const canvas = document.createElement("canvas");
+
+        canvas.width = Math.round(image.width * scale);
+        canvas.height = Math.round(image.height * scale);
+
+        const context = canvas.getContext("2d");
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+        const compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
+
+        if (compressedDataUrl.length > 600000) {
+          reject(
+            new Error(
+              "Image is still too large. Please upload a smaller screenshot."
+            )
+          );
+          return;
+        }
+
+        resolve(compressedDataUrl);
+      };
+
+      image.onerror = () => reject(new Error("Could not read image."));
+      image.src = reader.result;
+    };
+
+    reader.onerror = () => reject(new Error("Could not read file."));
+    reader.readAsDataURL(file);
+  });
+}
 function formatPrice(amount) {
   return `₹${Number(amount || 0).toLocaleString("en-IN")}`;
 }
@@ -245,6 +294,8 @@ export default function App() {
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [paymentProof, setPaymentProof] = useState("");
+  const [paymentProofUploading, setPaymentProofUploading] = useState(false);
   const [hasLoadedOrders, setHasLoadedOrders] = useState(false);
   const [newOrderAlert, setNewOrderAlert] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(false);
@@ -720,6 +771,7 @@ await Promise.all(stockUpdatePromises);
       setTrackSearchInput(orderId);
 
       setCart({});
+      setPaymentProof("");
       setView("payment");
     } catch (error) {
       console.error("Error placing order:", error);
@@ -750,6 +802,10 @@ await Promise.all(stockUpdatePromises);
           transactionId: customer.transactionId,
         },
         paymentStatus: updatedPaymentStatus,
+        paymentProof: paymentProof || selectedOrder.paymentProof || "",
+        paymentProofUploadedAt: paymentProof
+          ? new Date().toISOString()
+          : selectedOrder.paymentProofUploadedAt || "",
       });
 
       setLatestOrder({
@@ -759,12 +815,35 @@ await Promise.all(stockUpdatePromises);
           transactionId: customer.transactionId,
         },
         paymentStatus: updatedPaymentStatus,
+        paymentProof: paymentProof || latestOrder.paymentProof || "",
+        paymentProofUploadedAt: paymentProof
+          ? new Date().toISOString()
+          : latestOrder.paymentProofUploadedAt || "",
       });
 
       alert("Payment marked. Pantry will verify manually.");
     } catch (error) {
       console.error("Error updating payment:", error);
       alert("Could not update payment status.");
+    }
+  }
+
+
+
+  async function handlePaymentProofUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setPaymentProofUploading(true);
+
+    try {
+      const compressedProof = await compressImageFile(file);
+      setPaymentProof(compressedProof);
+    } catch (error) {
+      console.error("Payment proof upload error:", error);
+      alert(error.message || "Could not upload payment proof.");
+    } finally {
+      setPaymentProofUploading(false);
     }
   }
 
@@ -1604,6 +1683,28 @@ await Promise.all(stockUpdatePromises);
               }
             />
 
+            <div className="paymentProofUpload">
+              <label>
+                Payment screenshot <span>optional</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePaymentProofUpload}
+                />
+              </label>
+
+              {paymentProofUploading && <p>Compressing screenshot...</p>}
+
+              {paymentProof && (
+                <div className="paymentProofPreview">
+                  <img src={paymentProof} alt="Payment proof preview" />
+                  <button type="button" onClick={() => setPaymentProof("")}>
+                    Remove
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button className="primaryBtn" onClick={markPaid}>
               I Have Paid
             </button>
@@ -1745,6 +1846,14 @@ await Promise.all(stockUpdatePromises);
                 </div>
                 <strong>{formatPrice(trackedOrder.total)}</strong>
               </div>
+              {trackedOrder.paymentProof && (
+                <div className="adminPaymentProofBox">
+                  <small>Payment Screenshot Uploaded</small>
+                  <a href={trackedOrder.paymentProof} target="_blank" rel="noreferrer">
+                    <img src={trackedOrder.paymentProof} alt="Payment proof" />
+                  </a>
+                </div>
+              )}
               <div className="showPantryBox">
   <small>Show this at the counter</small>
   <strong>{trackedOrder.id}</strong>
@@ -1873,7 +1982,16 @@ await Promise.all(stockUpdatePromises);
                         </div>
                       </div>
 
-                      <div className="paymentActionButtons">
+                                            {order.paymentProof && (
+                        <div className="adminPaymentProofBox">
+                          <small>Payment Screenshot</small>
+                          <a href={order.paymentProof} target="_blank" rel="noreferrer">
+                            <img src={order.paymentProof} alt="Payment proof" />
+                          </a>
+                        </div>
+                      )}
+
+<div className="paymentActionButtons">
                         {order.paymentStatus !== "Payment verified" && (
                           <button
                             className="verifyPaymentBtn"
@@ -2320,6 +2438,15 @@ await Promise.all(stockUpdatePromises);
                       <strong>{formatPrice(order.total)}</strong>
                     </div>
 
+                    {order.paymentProof && (
+                      <div className="adminPaymentProofBox">
+                        <small>Payment Screenshot</small>
+                        <a href={order.paymentProof} target="_blank" rel="noreferrer">
+                          <img src={order.paymentProof} alt="Payment proof" />
+                        </a>
+                      </div>
+                    )}
+
                     <div className="paymentActionButtons">
                       {order.paymentStatus !== "Payment verified" && (
                         <button
@@ -2438,6 +2565,15 @@ await Promise.all(stockUpdatePromises);
 
                       <strong>{formatPrice(order.total)}</strong>
                     </div>
+
+                    {order.paymentProof && (
+                      <div className="adminPaymentProofBox">
+                        <small>Payment Screenshot</small>
+                        <a href={order.paymentProof} target="_blank" rel="noreferrer">
+                          <img src={order.paymentProof} alt="Payment proof" />
+                        </a>
+                      </div>
+                    )}
 
                     <div className="paymentActionButtons">
                       {order.paymentStatus !== "Payment verified" && (
