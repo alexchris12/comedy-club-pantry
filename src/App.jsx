@@ -398,24 +398,49 @@ export default function App() {
   const total = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
   const itemCount = cartItems.reduce((sum, item) => sum + item.qty, 0);
 
-  const todayDate = new Date().toLocaleDateString("en-IN");
+  const startOfDay = (date) => {
+  const cleanDate = new Date(date);
+  cleanDate.setHours(0, 0, 0, 0);
+  return cleanDate;
+};
 
-  const getOrderDate = (order) => {
-    if (order.createdAt?.toDate) {
-      return order.createdAt.toDate().toLocaleDateString("en-IN");
-    }
+const getOrderDateObject = (order) => {
+  if (order.createdAt?.toDate) {
+    return order.createdAt.toDate();
+  }
 
-    if (order.createdAt) {
-      return new Date(order.createdAt).toLocaleDateString("en-IN");
-    }
+  if (order.createdAt) {
+    return new Date(order.createdAt);
+  }
 
-    return todayDate;
-  };
+  return new Date();
+};
 
-  const dateFilteredOrders =
-    adminDateFilter === "today"
-      ? orders.filter((order) => getOrderDate(order) === todayDate)
-      : orders;
+const todayStart = startOfDay(new Date());
+
+const yesterdayStart = new Date(todayStart);
+yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
+const last7DaysStart = new Date(todayStart);
+last7DaysStart.setDate(last7DaysStart.getDate() - 6);
+
+const dateFilteredOrders = orders.filter((order) => {
+  const orderDate = startOfDay(getOrderDateObject(order));
+
+  if (adminDateFilter === "today") {
+    return orderDate.getTime() === todayStart.getTime();
+  }
+
+  if (adminDateFilter === "yesterday") {
+    return orderDate.getTime() === yesterdayStart.getTime();
+  }
+
+  if (adminDateFilter === "last7") {
+    return orderDate >= last7DaysStart && orderDate <= todayStart;
+  }
+
+  return true;
+});
 
   const activeOrders = dateFilteredOrders.filter((order) =>
     ["New", "Preparing", "Ready"].includes(order.status)
@@ -1340,21 +1365,35 @@ export default function App() {
               </button>
             </div>
 
-            <div className="adminDateTabs">
-              <button
-                className={adminDateFilter === "today" ? "activeAdminFilter" : ""}
-                onClick={() => setAdminDateFilter("today")}
-              >
-                Today
-              </button>
+            <div className="adminDateTabs archiveTabs">
+  <button
+    className={adminDateFilter === "today" ? "activeAdminFilter" : ""}
+    onClick={() => setAdminDateFilter("today")}
+  >
+    Today
+  </button>
 
-              <button
-                className={adminDateFilter === "all" ? "activeAdminFilter" : ""}
-                onClick={() => setAdminDateFilter("all")}
-              >
-                All Orders
-              </button>
-            </div>
+  <button
+    className={adminDateFilter === "yesterday" ? "activeAdminFilter" : ""}
+    onClick={() => setAdminDateFilter("yesterday")}
+  >
+    Yesterday
+  </button>
+
+  <button
+    className={adminDateFilter === "last7" ? "activeAdminFilter" : ""}
+    onClick={() => setAdminDateFilter("last7")}
+  >
+    Last 7 Days
+  </button>
+
+  <button
+    className={adminDateFilter === "all" ? "activeAdminFilter" : ""}
+    onClick={() => setAdminDateFilter("all")}
+  >
+    All Orders
+  </button>
+</div>
 
             <div className="adminFilterTabs">
               <button
