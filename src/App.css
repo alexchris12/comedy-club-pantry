@@ -2286,3 +2286,139 @@ button {
   border-radius: 14px;
   line-height: 1.35;
 }
+/* === Admin layout spacing polish === */
+
+.adminPageGrid {
+  gap: 18px;
+}
+
+.adminHeader {
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.adminHeaderActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.adminHeaderActions button {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.adminControlsPanel,
+.adminOrdersPanel {
+  align-self: start;
+}
+
+.adminControlsPanel {
+  position: sticky;
+  top: 18px;
+}
+
+.ordersList,
+.kitchenOrdersList {
+  align-items: start;
+}
+
+.orderCard,
+.kitchenOrderCard {
+  height: fit-content;
+}
+
+.orderTop,
+.kitchenOrderTop {
+  align-items: flex-start;
+}
+
+.orderTop h3,
+.kitchenOrderTop h3 {
+  word-break: break-word;
+}
+
+.orderTop p,
+.kitchenOrderTop p {
+  overflow-wrap: anywhere;
+}
+
+.adminStatsGrid {
+  align-items: start;
+}
+
+.adminStatCard,
+.analyticsCard {
+  min-width: 0;
+}
+
+.analyticsPanel,
+.feedbackAnalyticsPanel,
+.availabilityPanel {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 980px) {
+  .adminPageGrid {
+    max-width: 1440px;
+    grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .adminFullWidth {
+    grid-column: 1 / -1;
+  }
+
+  .adminOrdersPanel {
+    min-width: 0;
+  }
+
+  .ordersList {
+    grid-template-columns: repeat(2, minmax(280px, 1fr));
+  }
+
+  .kitchenOrdersList {
+    grid-template-columns: repeat(2, minmax(280px, 1fr));
+  }
+}
+
+@media (min-width: 1320px) {
+  .ordersList,
+  .kitchenOrdersList {
+    grid-template-columns: repeat(3, minmax(280px, 1fr));
+  }
+}
+
+@media (max-width: 979px) {
+  .adminControlsPanel {
+    position: static;
+  }
+
+  .adminHeader {
+    flex-direction: column;
+  }
+
+  .adminHeaderActions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .adminHeaderActions button {
+    flex: 1 1 calc(50% - 8px);
+  }
+}
+
+@media (max-width: 560px) {
+  .adminHeaderActions button {
+    flex-basis: 100%;
+  }
+
+  .adminStatsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analyticsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
