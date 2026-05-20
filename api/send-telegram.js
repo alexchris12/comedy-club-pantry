@@ -25,22 +25,36 @@ export default async function handler(request, response) {
       })
       .join("\n");
 
-    const message = `🔔 New Penfry Order
+    const orderTime = order.time || new Date().toLocaleTimeString("en-IN", {
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
-Order ID: ${order.id || "Not found"}
+const noteText = order.customer?.note
+  ? `\n📝 Note: ${order.customer.note}`
+  : "";
 
-Customer: ${order.customer?.name || "Not added"}
-Contact: ${order.customer?.phone || "Not added"}
+const upiRefText = order.customer?.transactionId
+  ? `\n🔖 UPI Ref: ${order.customer.transactionId}`
+  : "";
 
-Items:
+const message = `🔔 NEW PENFRY ORDER
+
+🧾 Order ID: ${order.id || "Not found"}
+🕒 Time: ${orderTime}
+
+👤 Customer: ${order.customer?.name || "Not added"}
+📞 Contact: ${order.customer?.phone || "Not added"}
+
+🍽️ Items:
 ${itemsText || "No items found"}
 
-Total: ₹${order.total || 0}
-Payment: ${order.paymentStatus || "Awaiting payment"}
-Status: ${order.status || "New"}
+💰 Total: ₹${order.total || 0}
+💳 Payment: ${order.paymentStatus || "Awaiting payment"}
+📦 Status: ${order.status || "New"}${upiRefText}${noteText}
 
-${order.customer?.transactionId ? `UPI Ref: ${order.customer.transactionId}` : "UPI Ref: Not added yet"}
-${order.customer?.note ? `Note: ${order.customer.note}` : ""}`;
+Open Admin:
+https://penfry.in/?admin=1`;
 
     const telegramResponse = await fetch(
       `https://api.telegram.org/bot${botToken}/sendMessage`,
