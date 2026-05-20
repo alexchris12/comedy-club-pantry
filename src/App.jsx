@@ -242,6 +242,9 @@ export default function App() {
   const [trackSearchInput, setTrackSearchInput] = useState(
     initialOrderId.toUpperCase()
   );
+  const [feedbackRating, setFeedbackRating] = useState(0);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [hasLoadedOrders, setHasLoadedOrders] = useState(false);
   const [newOrderAlert, setNewOrderAlert] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(false);
@@ -774,6 +777,33 @@ await Promise.all(stockUpdatePromises);
       alert("Could not verify payment.");
     }
   }
+  async function submitOrderFeedback() {
+  if (!trackedOrder?.firestoreId) {
+    alert("Order not found.");
+    return;
+  }
+
+  if (!feedbackRating) {
+    alert("Please select a rating.");
+    return;
+  }
+
+  try {
+    await updateDoc(doc(db, "orders", trackedOrder.firestoreId), {
+      feedback: {
+        rating: feedbackRating,
+        comment: feedbackComment.trim(),
+        createdAt: new Date().toISOString(),
+      },
+    });
+
+    setFeedbackSubmitted(true);
+    alert("Thank you for your feedback.");
+  } catch (error) {
+    console.error("Error submitting feedback:", error);
+    alert("Could not submit feedback.");
+  }
+}
 
   async function toggleItemAvailability(itemId) {
     const currentAvailability = isItemAvailable(itemId);
@@ -1494,6 +1524,43 @@ await Promise.all(stockUpdatePromises);
       : "Keep this order ID handy for pickup or support."}
   </p>
 </div>
+{trackedOrder.status === "Delivered" && (
+  <div className="feedbackBox">
+    <h3>How was your order?</h3>
+    <p>Your feedback helps us improve the pantry experience.</p>
+
+    {trackedOrder.feedback || feedbackSubmitted ? (
+      <div className="feedbackThanks">
+        <strong>Thank you!</strong>
+        <span>Feedback received.</span>
+      </div>
+    ) : (
+      <>
+        <div className="starRating">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <button
+              key={star}
+              className={feedbackRating >= star ? "selectedStar" : ""}
+              onClick={() => setFeedbackRating(star)}
+            >
+              ★
+            </button>
+          ))}
+        </div>
+
+        <textarea
+          placeholder="Optional comment..."
+          value={feedbackComment}
+          onChange={(event) => setFeedbackComment(event.target.value)}
+        />
+
+        <button className="primaryBtn" onClick={submitOrderFeedback}>
+          Submit Feedback
+        </button>
+      </>
+    )}
+  </div>
+)}
             </div>
           )}
 
@@ -1786,6 +1853,13 @@ await Promise.all(stockUpdatePromises);
                     {order.customer?.note && (
                       <p className="kitchenNote">Note: {order.customer.note}</p>
                     )}
+                    {order.feedback && (
+  <div className="adminFeedbackBox">
+    <small>Customer Feedback</small>
+    <strong>{"★".repeat(order.feedback.rating)}</strong>
+    {order.feedback.comment && <p>{order.feedback.comment}</p>}
+  </div>
+)}
 
                     <div className="kitchenTotal">
                       <span>Total</span>
