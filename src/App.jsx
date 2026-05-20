@@ -508,6 +508,60 @@ const dateFilteredOrders = orders.filter((order) => {
     (sum, order) => sum + Number(order.total || 0),
     0
   );
+  const totalOrdersCount = dateFilteredOrders.length;
+
+const averageOrderValue =
+  totalOrdersCount > 0 ? Math.round(totalOrderValue / totalOrdersCount) : 0;
+
+const cancelledOrdersCount = dateFilteredOrders.filter(
+  (order) => order.status === "Cancelled"
+).length;
+
+const itemSalesMap = dateFilteredOrders.reduce((salesMap, order) => {
+  (order.items || []).forEach((item) => {
+    const existingItem = salesMap[item.id] || {
+      name: item.name,
+      qty: 0,
+      revenue: 0,
+    };
+
+    salesMap[item.id] = {
+      ...existingItem,
+      qty: existingItem.qty + Number(item.qty || 0),
+      revenue:
+        existingItem.revenue + Number(item.price || 0) * Number(item.qty || 0),
+    };
+  });
+
+  return salesMap;
+}, {});
+
+const topSellingItem =
+  Object.values(itemSalesMap).sort((a, b) => b.qty - a.qty)[0] || null;
+
+const hourlyOrdersMap = dateFilteredOrders.reduce((hourMap, order) => {
+  let hour = "Unknown";
+
+  if (order.createdAt?.toDate) {
+    hour = order.createdAt.toDate().toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      hour12: true,
+    });
+  } else if (order.createdAt) {
+    hour = new Date(order.createdAt).toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      hour12: true,
+    });
+  } else if (order.time) {
+    hour = String(order.time).split(":")[0];
+  }
+
+  hourMap[hour] = (hourMap[hour] || 0) + 1;
+  return hourMap;
+}, {});
+
+const peakOrderHour =
+  Object.entries(hourlyOrdersMap).sort((a, b) => b[1] - a[1])[0] || null;
 
   const trackedOrder = orders.find(
     (order) => order.id?.toUpperCase() === trackOrderId.toUpperCase()
@@ -1562,6 +1616,50 @@ await Promise.all(stockUpdatePromises);
                 <span>Active</span>
                 <strong>{activeOrders.length}</strong>
               </div>
+              {adminViewMode === "normal" && (
+  <div className="analyticsPanel">
+    <div className="analyticsHeader">
+      <div>
+        <h3>Analytics</h3>
+        <p>Quick sales insights for the selected date range.</p>
+      </div>
+    </div>
+
+    <div className="analyticsGrid">
+      <div className="analyticsCard">
+        <span>Total Orders</span>
+        <strong>{totalOrdersCount}</strong>
+      </div>
+
+      <div className="analyticsCard">
+        <span>Average Order</span>
+        <strong>{formatPrice(averageOrderValue)}</strong>
+      </div>
+
+      <div className="analyticsCard">
+        <span>Top Item</span>
+        <strong>{topSellingItem ? topSellingItem.name : "—"}</strong>
+        {topSellingItem && <small>{topSellingItem.qty} sold</small>}
+      </div>
+
+      <div className="analyticsCard">
+        <span>Peak Hour</span>
+        <strong>{peakOrderHour ? peakOrderHour[0] : "—"}</strong>
+        {peakOrderHour && <small>{peakOrderHour[1]} orders</small>}
+      </div>
+
+      <div className="analyticsCard">
+        <span>Cancelled</span>
+        <strong>{cancelledOrdersCount}</strong>
+      </div>
+
+      <div className="analyticsCard">
+        <span>Verified Revenue</span>
+        <strong>{formatPrice(verifiedSalesTotal)}</strong>
+      </div>
+    </div>
+  </div>
+)}
 
               <div className="adminStatCard">
                 <span>Completed</span>

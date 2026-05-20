@@ -1438,3 +1438,63 @@ button {
   color: rgba(255, 247, 237, 0.78);
   font-weight: 750;
 }
+.analyticsPanel {
+  margin: 16px 0;
+  background: #fffaf3;
+  border: 1px solid rgba(241, 90, 0, 0.22);
+  border-radius: 22px;
+  padding: 16px;
+  box-shadow: 0 10px 28px rgba(74, 20, 9, 0.06);
+}
+
+.analyticsHeader h3 {
+  margin: 0;
+  color: #4a1409;
+  font-size: 18px;
+}
+
+.analyticsHeader p {
+  margin: 6px 0 14px;
+  color: rgba(74, 20, 9, 0.62);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.analyticsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.analyticsCard {
+  background: #f6e6d8;
+  border-radius: 16px;
+  padding: 14px;
+  min-height: 92px;
+}
+
+.analyticsCard span {
+  display: block;
+  color: rgba(74, 20, 9, 0.58);
+  font-size: 11px;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.analyticsCard strong {
+  display: block;
+  margin-top: 8px;
+  color: #4a1409;
+  font-size: 20px;
+  line-height: 1.1;
+  font-weight: 1000;
+  word-break: break-word;
+}
+
+.analyticsCard small {
+  display: block;
+  margin-top: 6px;
+  color: rgba(74, 20, 9, 0.62);
+  font-weight: 850;
+}
