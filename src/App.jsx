@@ -18,7 +18,7 @@ import "./App.css";
 const UPI_ID = "shashisuryavanshi7647-2@oksbi";
 const PAYEE_NAME = "Penfry";
 
-const DEFAULT_MENU_ITEMS = [
+const menuItems = [
   {
     id: "saste-nashe",
     name: "Saste Nashe",
@@ -175,8 +175,6 @@ function getItemIcon(item) {
 }
 
 export default function App() {
-  const [menuItems, setMenuItems] = useState(DEFAULT_MENU_ITEMS);
-
   const [view, setView] = useState(
     window.location.pathname === "/admin" ||
       window.location.search.includes("admin=1")
@@ -297,34 +295,6 @@ export default function App() {
         setItemAvailability(availabilityData);
       }
     );
-
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "menuItems"), (snapshot) => {
-      const firebaseMenuData = {};
-
-      snapshot.docs.forEach((document) => {
-        firebaseMenuData[document.id] = document.data();
-      });
-
-      const mergedMenuItems = DEFAULT_MENU_ITEMS.map((item) => {
-        const firebaseItem = firebaseMenuData[item.id];
-
-        if (!firebaseItem) return item;
-
-        return {
-          ...item,
-          ...firebaseItem,
-          id: item.id,
-          category: firebaseItem.category || item.category,
-          price: Number(firebaseItem.price ?? item.price),
-        };
-      });
-
-      setMenuItems(mergedMenuItems);
-    });
 
     return () => unsubscribe();
   }, []);
@@ -570,53 +540,6 @@ export default function App() {
     } catch (error) {
       console.error("Error updating item availability:", error);
       alert("Could not update item availability.");
-    }
-  }
-
-  async function editMenuItem(item) {
-    const newName = window.prompt("Edit item name:", item.name);
-    if (newName === null) return;
-
-    const newDesc = window.prompt("Edit item description:", item.desc);
-    if (newDesc === null) return;
-
-    const newPriceInput = window.prompt("Edit item price:", String(item.price));
-    if (newPriceInput === null) return;
-
-    const newPrice = Number(newPriceInput);
-
-    if (!newName.trim()) {
-      alert("Item name cannot be empty.");
-      return;
-    }
-
-    if (!newDesc.trim()) {
-      alert("Description cannot be empty.");
-      return;
-    }
-
-    if (Number.isNaN(newPrice) || newPrice < 0) {
-      alert("Please enter a valid price.");
-      return;
-    }
-
-    try {
-      await setDoc(
-        doc(db, "menuItems", item.id),
-        {
-          name: newName.trim(),
-          desc: newDesc.trim(),
-          price: newPrice,
-          category: item.category,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-
-      alert("Menu item updated.");
-    } catch (error) {
-      console.error("Error updating menu item:", error);
-      alert("Could not update menu item.");
     }
   }
 
@@ -1090,21 +1013,16 @@ export default function App() {
                     </span>
                   </div>
 
-                  <div className="availabilityActions">
-  <button
-    className="editMenuItemBtn"
-    onClick={() => editMenuItem(item)}
-  >
-    Edit
-  </button>
-
-  <button
-    className={isItemAvailable(item.id) ? "availableBtn" : "soldOutToggleBtn"}
-    onClick={() => toggleItemAvailability(item.id)}
-  >
-    {isItemAvailable(item.id) ? "Available" : "Sold Out"}
-  </button>
-</div>
+                  <button
+                    className={
+                      isItemAvailable(item.id)
+                        ? "availableBtn"
+                        : "soldOutToggleBtn"
+                    }
+                    onClick={() => toggleItemAvailability(item.id)}
+                  >
+                    {isItemAvailable(item.id) ? "Available" : "Sold Out"}
+                  </button>
                 </div>
               ))}
             </div>

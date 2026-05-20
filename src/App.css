@@ -939,3 +939,150 @@ button {
   background: #4a1409;
   color: #fff7ed;
 }
+.adminViewTabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 16px 0 4px;
+}
+
+.adminViewTabs button {
+  border: 1px solid rgba(241, 90, 0, 0.22);
+  border-radius: 16px;
+  padding: 12px 10px;
+  background: #fffaf3;
+  color: #4a1409;
+  font-weight: 950;
+}
+
+.adminViewTabs .activeAdminFilter {
+  background: #4a1409;
+  color: #fff7ed;
+}
+
+.availabilityPanelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.addMenuItemBtn {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: #f15a00;
+  color: #fff7ed;
+  font-size: 13px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.kitchenOrdersList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.kitchenOrderCard {
+  background: #fffaf3;
+  border: 2px solid rgba(241, 90, 0, 0.24);
+  border-radius: 24px;
+  padding: 18px;
+  box-shadow: 0 14px 32px rgba(74, 20, 9, 0.08);
+}
+
+.kitchenOrderTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.kitchenOrderTop small {
+  color: rgba(74, 20, 9, 0.58);
+  font-weight: 900;
+}
+
+.kitchenOrderTop h3 {
+  margin: 4px 0;
+  color: #4a1409;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.kitchenOrderTop p {
+  margin: 0;
+  color: rgba(74, 20, 9, 0.7);
+  font-weight: 800;
+}
+
+.kitchenItems {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kitchenItems div {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 8px;
+  align-items: center;
+  background: #f6e6d8;
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.kitchenItems strong {
+  color: #f15a00;
+  font-size: 22px;
+  font-weight: 1000;
+}
+
+.kitchenItems span {
+  color: #4a1409;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.kitchenNote {
+  margin: 14px 0 0;
+  padding: 12px;
+  border-radius: 16px;
+  background: #fff0d8;
+  color: #4a1409;
+  font-weight: 850;
+}
+
+.kitchenTotal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 14px 0;
+  padding-top: 14px;
+  border-top: 1px solid rgba(74, 20, 9, 0.14);
+}
+
+.kitchenTotal span {
+  color: rgba(74, 20, 9, 0.62);
+  font-weight: 900;
+}
+
+.kitchenTotal strong {
+  color: #4a1409;
+  font-size: 24px;
+  font-weight: 1000;
+}
+
+@media (max-width: 520px) {
+  .availabilityPanelHeader {
+    flex-direction: column;
+  }
+
+  .addMenuItemBtn {
+    width: 100%;
+  }
+}
