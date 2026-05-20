@@ -759,3 +759,35 @@ button {
   background: #f15a00;
   color: #fff7ed;
 }
+.adminStatsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 14px 0 4px;
+}
+
+.adminStatCard {
+  background: #fffaf3;
+  border: 1px solid rgba(241, 90, 0, 0.22);
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: 0 10px 28px rgba(74, 20, 9, 0.06);
+}
+
+.adminStatCard span {
+  display: block;
+  color: rgba(74, 20, 9, 0.58);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.adminStatCard strong {
+  display: block;
+  margin-top: 6px;
+  color: #4a1409;
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 1000;
+}

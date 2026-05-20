@@ -301,6 +301,19 @@ const completedOrders = orders.filter((order) =>
 );
 
 const visibleOrders = adminFilter === "active" ? activeOrders : completedOrders;
+const verifiedOrders = orders.filter(
+  (order) => order.paymentStatus === "Payment verified"
+);
+
+const verifiedSalesTotal = verifiedOrders.reduce(
+  (sum, order) => sum + Number(order.total || 0),
+  0
+);
+
+const totalOrderValue = orders.reduce(
+  (sum, order) => sum + Number(order.total || 0),
+  0
+);
 
   function addItem(id) {
     setCart((prev) => ({
@@ -783,6 +796,27 @@ if (isAdminPage && !isAdminUnlocked) {
   >
     Completed ({completedOrders.length})
   </button>
+</div>
+<div className="adminStatsGrid">
+  <div className="adminStatCard">
+    <span>Active</span>
+    <strong>{activeOrders.length}</strong>
+  </div>
+
+  <div className="adminStatCard">
+    <span>Completed</span>
+    <strong>{completedOrders.length}</strong>
+  </div>
+
+  <div className="adminStatCard">
+    <span>Verified Sales</span>
+    <strong>{formatPrice(verifiedSalesTotal)}</strong>
+  </div>
+
+  <div className="adminStatCard">
+    <span>Total Value</span>
+    <strong>{formatPrice(totalOrderValue)}</strong>
+  </div>
 </div>
 
           {visibleOrders.length === 0 ? (
