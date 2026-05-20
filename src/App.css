@@ -739,3 +739,23 @@ button {
   background: #dc2626 !important;
   color: #ffffff !important;
 }
+.adminFilterTabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 16px 0 4px;
+}
+
+.adminFilterTabs button {
+  border: 1px solid rgba(241, 90, 0, 0.22);
+  border-radius: 16px;
+  padding: 12px 10px;
+  background: #fffaf3;
+  color: #4a1409;
+  font-weight: 950;
+}
+
+.adminFilterTabs .activeAdminFilter {
+  background: #f15a00;
+  color: #fff7ed;
+}

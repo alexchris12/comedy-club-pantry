@@ -194,6 +194,7 @@ export default function App() {
   const [hasLoadedOrders, setHasLoadedOrders] = useState(false);
   const [newOrderAlert, setNewOrderAlert] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const [adminFilter, setAdminFilter] = useState("active");
   
 
   const isAdminPage =
@@ -291,6 +292,15 @@ const [isAdminUnlocked, setIsAdminUnlocked] = useState(
 
   const total = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
   const itemCount = cartItems.reduce((sum, item) => sum + item.qty, 0);
+  const activeOrders = orders.filter((order) =>
+  ["New", "Preparing", "Ready"].includes(order.status)
+);
+
+const completedOrders = orders.filter((order) =>
+  ["Delivered", "Cancelled"].includes(order.status)
+);
+
+const visibleOrders = adminFilter === "active" ? activeOrders : completedOrders;
 
   function addItem(id) {
     setCart((prev) => ({
@@ -759,15 +769,36 @@ if (isAdminPage && !isAdminUnlocked) {
               Clear
             </button>
           </div>
+          <div className="adminFilterTabs">
+  <button
+    className={adminFilter === "active" ? "activeAdminFilter" : ""}
+    onClick={() => setAdminFilter("active")}
+  >
+    Active ({activeOrders.length})
+  </button>
 
-          {orders.length === 0 ? (
+  <button
+    className={adminFilter === "completed" ? "activeAdminFilter" : ""}
+    onClick={() => setAdminFilter("completed")}
+  >
+    Completed ({completedOrders.length})
+  </button>
+</div>
+
+          {visibleOrders.length === 0 ? (
             <div className="emptyBox">
-              <h3>No orders yet</h3>
-              <p>Orders will appear here after customers place them.</p>
-            </div>
+  <h3>
+    {adminFilter === "active" ? "No active orders" : "No completed orders"}
+  </h3>
+  <p>
+    {adminFilter === "active"
+      ? "New orders will appear here after customers place them."
+      : "Delivered and cancelled orders will appear here."}
+  </p>
+</div>
           ) : (
             <div className="ordersList">
-              {orders.map((order) => (
+              {visibleOrders.map((order) => (
                 <div className="orderCard" key={order.id}>
                   <div className="orderTop">
                     <div>
