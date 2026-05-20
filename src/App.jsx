@@ -133,8 +133,35 @@ const DEFAULT_MENU_ITEMS = [
   },
 ];
 
+const ORDER_STEPS = ["New", "Preparing", "Ready", "Delivered"];
+
 function formatPrice(amount) {
   return `₹${Number(amount || 0).toLocaleString("en-IN")}`;
+}
+
+function createOrderId() {
+  const datePart = new Date().toISOString().slice(2, 10).replace(/-/g, "");
+  const randomPart =
+    typeof crypto !== "undefined" && crypto.getRandomValues
+      ? Array.from(crypto.getRandomValues(new Uint8Array(3)))
+          .map((value) => value.toString(36).padStart(2, "0"))
+          .join("")
+          .slice(0, 5)
+          .toUpperCase()
+      : Math.random().toString(36).slice(2, 7).toUpperCase();
+
+  return `PF-${datePart}-${randomPart}`;
+}
+
+function createMenuItemId(name) {
+  const slug =
+    name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "item";
+
+  return `${slug}-${Date.now().toString().slice(-5)}`;
 }
 
 function createUpiLink(amount, orderId) {
@@ -175,13 +202,16 @@ function getItemIcon(item) {
 }
 
 export default function App() {
-  const [menuItems, setMenuItems] = useState(DEFAULT_MENU_ITEMS);
-
-  const [view, setView] = useState(
+  const isAdminPage =
     window.location.pathname === "/admin" ||
-      window.location.search.includes("admin=1")
-      ? "admin"
-      : "menu"
+    window.location.search.includes("admin=1");
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialOrderId = urlParams.get("order") || "";
+
+  const [menuItems, setMenuItems] = useState(DEFAULT_MENU_ITEMS);
+  const [view, setView] = useState(
+    isAdminPage ? "admin" : initialOrderId ? "tracking" : "menu"
   );
 
   const [cart, setCart] = useState({});
@@ -197,16 +227,17 @@ export default function App() {
   const [orders, setOrders] = useState([]);
   const [itemAvailability, setItemAvailability] = useState({});
   const [latestOrder, setLatestOrder] = useState(null);
+  const [trackOrderId, setTrackOrderId] = useState(initialOrderId.toUpperCase());
+  const [trackSearchInput, setTrackSearchInput] = useState(
+    initialOrderId.toUpperCase()
+  );
   const [hasLoadedOrders, setHasLoadedOrders] = useState(false);
   const [newOrderAlert, setNewOrderAlert] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [adminFilter, setAdminFilter] = useState("active");
   const [adminDateFilter, setAdminDateFilter] = useState("today");
   const [adminViewMode, setAdminViewMode] = useState("normal");
-
-  const isAdminPage =
-    window.location.pathname === "/admin" ||
-    window.location.search.includes("admin=1");
+  const [adminSearch, setAdminSearch] = useState("");
 
   const ADMIN_PIN = "6969";
   const [pinInput, setPinInput] = useState("");
@@ -310,34 +341,6 @@ export default function App() {
         firebaseMenuData[document.id] = document.data();
       });
 
-      const mergedMenuItems = DEFAULT_MENU_ITEMS.map((item) => {
-        const firebaseItem = firebaseMenuData[item.id];
-
-        if (!firebaseItem) return item;
-
-        return {
-          ...item,
-          ...firebaseItem,
-          id: item.id,
-          category: firebaseItem.category || item.category,
-          price: Number(firebaseItem.price ?? item.price),
-        };
-      });
-
-      setMenuItems(mergedMenuItems);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "menuItems"), (snapshot) => {
-      const firebaseMenuData = {};
-
-      snapshot.docs.forEach((document) => {
-        firebaseMenuData[document.id] = document.data();
-      });
-
       const defaultIds = new Set(DEFAULT_MENU_ITEMS.map((item) => item.id));
 
       const mergedDefaultItems = DEFAULT_MENU_ITEMS.map((item) => {
@@ -351,6 +354,7 @@ export default function App() {
           id: item.id,
           category: firebaseItem.category || item.category,
           price: Number(firebaseItem.price ?? item.price),
+          custom: Boolean(firebaseItem.custom),
         };
       });
 
@@ -389,7 +393,7 @@ export default function App() {
         return item ? { ...item, qty } : null;
       })
       .filter(Boolean);
-  }, [cart]);
+  }, [cart, menuItems]);
 
   const total = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
   const itemCount = cartItems.reduce((sum, item) => sum + item.qty, 0);
@@ -421,8 +425,26 @@ export default function App() {
     ["Delivered", "Cancelled"].includes(order.status)
   );
 
-  const visibleOrders =
+  const statusFilteredOrders =
     adminFilter === "active" ? activeOrders : completedOrders;
+
+  const visibleOrders = statusFilteredOrders.filter((order) => {
+    const searchValue = adminSearch.trim().toLowerCase();
+
+    if (!searchValue) return true;
+
+    const itemsText = (order.items || [])
+      .map((item) => item.name)
+      .join(" ")
+      .toLowerCase();
+
+    return (
+      String(order.id || "").toLowerCase().includes(searchValue) ||
+      String(order.customer?.name || "").toLowerCase().includes(searchValue) ||
+      String(order.customer?.phone || "").toLowerCase().includes(searchValue) ||
+      itemsText.includes(searchValue)
+    );
+  });
 
   const verifiedOrders = dateFilteredOrders.filter(
     (order) => order.paymentStatus === "Payment verified"
@@ -436,6 +458,10 @@ export default function App() {
   const totalOrderValue = dateFilteredOrders.reduce(
     (sum, order) => sum + Number(order.total || 0),
     0
+  );
+
+  const trackedOrder = orders.find(
+    (order) => order.id?.toUpperCase() === trackOrderId.toUpperCase()
   );
 
   function addItem(id) {
@@ -467,6 +493,14 @@ export default function App() {
     return itemAvailability[itemId] !== false;
   }
 
+  function openTracking(orderId) {
+    const normalizedOrderId = orderId.toUpperCase();
+    setTrackOrderId(normalizedOrderId);
+    setTrackSearchInput(normalizedOrderId);
+    window.history.replaceState(null, "", `/?order=${normalizedOrderId}`);
+    setView("tracking");
+  }
+
   async function placeOrder() {
     if (!customer.name.trim() || !customer.phone.trim() || cartItems.length === 0) {
       alert("Please enter your name, contact number and add items.");
@@ -482,7 +516,7 @@ export default function App() {
       return;
     }
 
-    const orderId = `PF-${String(Date.now()).slice(-5)}`;
+    const orderId = createOrderId();
     const upiLink = createUpiLink(total, orderId);
 
     const order = {
@@ -520,6 +554,8 @@ export default function App() {
         ...order,
         createdAt: new Date().toISOString(),
       });
+      setTrackOrderId(orderId);
+      setTrackSearchInput(orderId);
 
       setCart({});
       setView("payment");
@@ -625,61 +661,6 @@ export default function App() {
     const newPriceInput = window.prompt("Edit item price:", String(item.price));
     if (newPriceInput === null) return;
 
-    const newPrice = Number(newPriceInput);
-
-    if (!newName.trim()) {
-      alert("Item name cannot be empty.");
-      return;
-    }
-
-    if (!newDesc.trim()) {
-      alert("Description cannot be empty.");
-      return;
-    }
-
-    if (Number.isNaN(newPrice) || newPrice < 0) {
-      alert("Please enter a valid price.");
-      return;
-    }
-
-    try {
-      await setDoc(
-        doc(db, "menuItems", item.id),
-        {
-          name: newName.trim(),
-          desc: newDesc.trim(),
-          price: newPrice,
-          category: item.category,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-
-      alert("Menu item updated.");
-    } catch (error) {
-      console.error("Error updating menu item:", error);
-      alert("Could not update menu item.");
-    }
-  }
-
-  function createMenuItemId(name) {
-    return `${name
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")}-${Date.now().toString().slice(-5)}`;
-  }
-
-  async function editMenuItem(item) {
-    const newName = window.prompt("Edit item name:", item.name);
-    if (newName === null) return;
-
-    const newDesc = window.prompt("Edit item description:", item.desc);
-    if (newDesc === null) return;
-
-    const newPriceInput = window.prompt("Edit item price:", String(item.price));
-    if (newPriceInput === null) return;
-
     const newCategory = window.prompt("Edit category:", item.category);
     if (newCategory === null) return;
 
@@ -713,6 +694,7 @@ export default function App() {
           desc: newDesc.trim(),
           price: newPrice,
           category: newCategory.trim(),
+          custom: Boolean(item.custom),
           updatedAt: serverTimestamp(),
         },
         { merge: true }
@@ -785,6 +767,25 @@ export default function App() {
     } catch (error) {
       console.error("Error adding menu item:", error);
       alert("Could not add menu item.");
+    }
+  }
+
+  async function deleteMenuItem(item) {
+    if (!item.custom) {
+      alert("Default items cannot be deleted. You can mark them Sold Out instead.");
+      return;
+    }
+
+    const confirmDelete = window.confirm(`Delete ${item.name}?`);
+    if (!confirmDelete) return;
+
+    try {
+      await deleteDoc(doc(db, "menuItems", item.id));
+      await deleteDoc(doc(db, "itemAvailability", item.id));
+      alert("Menu item deleted.");
+    } catch (error) {
+      console.error("Error deleting menu item:", error);
+      alert("Could not delete menu item.");
     }
   }
 
@@ -907,7 +908,7 @@ export default function App() {
 
   if (isAdminPage && !isAdminUnlocked) {
     return (
-      <div className="app">
+      <div className="app adminApp">
         <main className="page adminLoginPage">
           <div className="adminLoginBox">
             <h1>PENFRY</h1>
@@ -940,13 +941,13 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className={`app ${isAdminPage ? "adminApp" : ""}`}>
       <header className="topbar">
         <div className="brandWrap">
           <img src={penfryLogo} alt="Penfry" className="brandLogo" />
         </div>
 
-        {isAdminPage && (
+        {isAdminPage ? (
           <button
             className="adminBtn"
             onClick={() => {
@@ -954,6 +955,10 @@ export default function App() {
             }}
           >
             Menu
+          </button>
+        ) : (
+          <button className="adminBtn" onClick={() => setView("tracking")}>
+            Track
           </button>
         )}
       </header>
@@ -1153,6 +1158,13 @@ export default function App() {
             <button className="primaryBtn" onClick={markPaid}>
               I Have Paid
             </button>
+
+            <button
+              className="secondaryBtn"
+              onClick={() => openTracking(latestOrder.id)}
+            >
+              Track Order Status
+            </button>
           </section>
 
           <button className="secondaryBtn" onClick={() => setView("menu")}>
@@ -1161,8 +1173,126 @@ export default function App() {
         </main>
       )}
 
-      {view === "admin" && (
+      {view === "tracking" && (
         <main className="page">
+          <section className="trackBox">
+            <p className="eyebrow">Live Status</p>
+            <h2>Track your order</h2>
+            <p>Enter your order ID to see live pantry updates.</p>
+
+            <div className="trackSearch">
+              <input
+                placeholder="Example: PF-260520-AB12C"
+                value={trackSearchInput}
+                onChange={(event) =>
+                  setTrackSearchInput(event.target.value.toUpperCase())
+                }
+              />
+              <button
+                onClick={() => {
+                  const orderId = trackSearchInput.trim().toUpperCase();
+                  if (!orderId) {
+                    alert("Please enter an order ID.");
+                    return;
+                  }
+                  openTracking(orderId);
+                }}
+              >
+                Track
+              </button>
+            </div>
+          </section>
+
+          {!trackOrderId ? (
+            <div className="emptyBox">
+              <h3>No order selected</h3>
+              <p>Enter the order ID shown after checkout.</p>
+            </div>
+          ) : !hasLoadedOrders ? (
+            <div className="emptyBox">
+              <h3>Loading order</h3>
+              <p>Checking live order status...</p>
+            </div>
+          ) : !trackedOrder ? (
+            <div className="emptyBox">
+              <h3>Order not found</h3>
+              <p>Please check the order ID and try again.</p>
+            </div>
+          ) : (
+            <div className="trackingCard">
+              <div className="trackingTop">
+                <div>
+                  <small>{trackedOrder.time}</small>
+                  <h3>{trackedOrder.id}</h3>
+                  <p>{trackedOrder.customer?.name}</p>
+                </div>
+                <span className={`status ${trackedOrder.status}`}>
+                  {trackedOrder.status}
+                </span>
+              </div>
+
+              <div className="trackSteps">
+                {ORDER_STEPS.map((step) => {
+                  const currentIndex = ORDER_STEPS.indexOf(trackedOrder.status);
+                  const stepIndex = ORDER_STEPS.indexOf(step);
+                  const isDone =
+                    trackedOrder.status === "Cancelled"
+                      ? false
+                      : stepIndex <= currentIndex;
+
+                  return (
+                    <div
+                      className={`trackStep ${isDone ? "done" : ""}`}
+                      key={step}
+                    >
+                      <span>{stepIndex + 1}</span>
+                      <p>{step}</p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {trackedOrder.status === "Cancelled" && (
+                <div className="cancelledNotice">
+                  This order has been cancelled.
+                </div>
+              )}
+
+              <div className="orderItems">
+                {trackedOrder.items.map((item) => (
+                  <div key={item.id}>
+                    <span>
+                      {item.qty} × {item.name}
+                    </span>
+                    <strong>{formatPrice(item.price * item.qty)}</strong>
+                  </div>
+                ))}
+              </div>
+
+              <div className="paymentStatus">
+                <div>
+                  <small>Payment</small>
+                  <p>{trackedOrder.paymentStatus}</p>
+                </div>
+                <strong>{formatPrice(trackedOrder.total)}</strong>
+              </div>
+            </div>
+          )}
+
+          <button
+            className="secondaryBtn"
+            onClick={() => {
+              window.history.replaceState(null, "", "/");
+              setView("menu");
+            }}
+          >
+            Back to Menu
+          </button>
+        </main>
+      )}
+
+      {view === "admin" && (
+        <main className="page adminPageGrid">
           {newOrderAlert && (
             <div className="newOrderAlert">🔔 New order received</div>
           )}
@@ -1173,7 +1303,7 @@ export default function App() {
             </button>
           )}
 
-          <div className="adminHeader">
+          <div className="adminHeader adminFullWidth">
             <div>
               <p className="eyebrow">Staff Dashboard</p>
               <h2>Orders</h2>
@@ -1190,141 +1320,163 @@ export default function App() {
             </div>
           </div>
 
-          <div className="adminViewTabs">
-            <button
-              className={adminViewMode === "normal" ? "activeAdminFilter" : ""}
-              onClick={() => setAdminViewMode("normal")}
-            >
-              Normal View
-            </button>
+          <section className="adminControlsPanel">
+            <div className="adminViewTabs">
+              <button
+                className={adminViewMode === "normal" ? "activeAdminFilter" : ""}
+                onClick={() => setAdminViewMode("normal")}
+              >
+                Normal View
+              </button>
 
-            <button
-              className={adminViewMode === "kitchen" ? "activeAdminFilter" : ""}
-              onClick={() => {
-                setAdminViewMode("kitchen");
-                setAdminFilter("active");
-              }}
-            >
-              Kitchen View
-            </button>
-          </div>
-
-          <div className="adminDateTabs">
-            <button
-              className={adminDateFilter === "today" ? "activeAdminFilter" : ""}
-              onClick={() => setAdminDateFilter("today")}
-            >
-              Today
-            </button>
-
-            <button
-              className={adminDateFilter === "all" ? "activeAdminFilter" : ""}
-              onClick={() => setAdminDateFilter("all")}
-            >
-              All Orders
-            </button>
-          </div>
-
-          <div className="adminFilterTabs">
-            <button
-              className={adminFilter === "active" ? "activeAdminFilter" : ""}
-              onClick={() => setAdminFilter("active")}
-            >
-              Active ({activeOrders.length})
-            </button>
-
-            <button
-              className={adminFilter === "completed" ? "activeAdminFilter" : ""}
-              onClick={() => setAdminFilter("completed")}
-            >
-              Completed ({completedOrders.length})
-            </button>
-          </div>
-
-          <div className="adminStatsGrid">
-            <div className="adminStatCard">
-              <span>Active</span>
-              <strong>{activeOrders.length}</strong>
+              <button
+                className={adminViewMode === "kitchen" ? "activeAdminFilter" : ""}
+                onClick={() => {
+                  setAdminViewMode("kitchen");
+                  setAdminFilter("active");
+                }}
+              >
+                Kitchen View
+              </button>
             </div>
 
-            <div className="adminStatCard">
-              <span>Completed</span>
-              <strong>{completedOrders.length}</strong>
+            <div className="adminDateTabs">
+              <button
+                className={adminDateFilter === "today" ? "activeAdminFilter" : ""}
+                onClick={() => setAdminDateFilter("today")}
+              >
+                Today
+              </button>
+
+              <button
+                className={adminDateFilter === "all" ? "activeAdminFilter" : ""}
+                onClick={() => setAdminDateFilter("all")}
+              >
+                All Orders
+              </button>
             </div>
 
-            <div className="adminStatCard">
-              <span>Verified Sales</span>
-              <strong>{formatPrice(verifiedSalesTotal)}</strong>
+            <div className="adminFilterTabs">
+              <button
+                className={adminFilter === "active" ? "activeAdminFilter" : ""}
+                onClick={() => setAdminFilter("active")}
+              >
+                Active ({activeOrders.length})
+              </button>
+
+              <button
+                className={adminFilter === "completed" ? "activeAdminFilter" : ""}
+                onClick={() => setAdminFilter("completed")}
+              >
+                Completed ({completedOrders.length})
+              </button>
             </div>
 
-            <div className="adminStatCard">
-              <span>Total Value</span>
-              <strong>{formatPrice(totalOrderValue)}</strong>
-            </div>
-          </div>
+            <input
+              className="adminSearch"
+              placeholder="Search order, customer, phone, item..."
+              value={adminSearch}
+              onChange={(event) => setAdminSearch(event.target.value)}
+            />
 
-          {adminViewMode === "normal" && (
-            <div className="availabilityPanel">
-              <div className="availabilityPanelHeader">
-                <div>
-                  <h3>Item Availability</h3>
-                  <p>Mark items as sold out or available.</p>
+            <div className="adminStatsGrid">
+              <div className="adminStatCard">
+                <span>Active</span>
+                <strong>{activeOrders.length}</strong>
+              </div>
+
+              <div className="adminStatCard">
+                <span>Completed</span>
+                <strong>{completedOrders.length}</strong>
+              </div>
+
+              <div className="adminStatCard">
+                <span>Verified Sales</span>
+                <strong>{formatPrice(verifiedSalesTotal)}</strong>
+              </div>
+
+              <div className="adminStatCard">
+                <span>Total Value</span>
+                <strong>{formatPrice(totalOrderValue)}</strong>
+              </div>
+            </div>
+
+            {adminViewMode === "normal" && (
+              <div className="availabilityPanel">
+                <div className="availabilityPanelHeader">
+                  <div>
+                    <h3>Item Availability</h3>
+                    <p>Mark items as sold out or available.</p>
+                  </div>
+
+                  <button className="addMenuItemBtn" onClick={addNewMenuItem}>
+                    + Add Item
+                  </button>
                 </div>
 
-                <button className="addMenuItemBtn" onClick={addNewMenuItem}>
-                  + Add Item
-                </button>
-              </div>
+                <div className="availabilityList">
+                  {menuItems.map((item) => (
+                    <div className="availabilityItem" key={item.id}>
+                      <div>
+                        <strong>{item.name}</strong>
+                        <span>
+                          {item.category} • {formatPrice(item.price)}
+                          {item.custom ? " • Custom" : ""}
+                        </span>
+                      </div>
 
-              <div className="availabilityList">
-                {menuItems.map((item) => (
-                  <div className="availabilityItem" key={item.id}>
-                    <div>
-                      <strong>{item.name}</strong>
-                      <span>
-                        {item.category} • {formatPrice(item.price)}
-                      </span>
+                      <div className="availabilityActions">
+                        <button
+                          className="editMenuItemBtn"
+                          onClick={() => editMenuItem(item)}
+                        >
+                          Edit
+                        </button>
+
+                        {item.custom && (
+                          <button
+                            className="deleteMenuItemBtn"
+                            onClick={() => deleteMenuItem(item)}
+                          >
+                            Delete
+                          </button>
+                        )}
+
+                        <button
+                          className={
+                            isItemAvailable(item.id)
+                              ? "availableBtn"
+                              : "soldOutToggleBtn"
+                          }
+                          onClick={() => toggleItemAvailability(item.id)}
+                        >
+                          {isItemAvailable(item.id) ? "Available" : "Sold Out"}
+                        </button>
+                      </div>
                     </div>
-
-                    <div className="availabilityActions">
-                      <button
-                        className="editMenuItemBtn"
-                        onClick={() => editMenuItem(item)}
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        className={
-                          isItemAvailable(item.id)
-                            ? "availableBtn"
-                            : "soldOutToggleBtn"
-                        }
-                        onClick={() => toggleItemAvailability(item.id)}
-                      >
-                        {isItemAvailable(item.id) ? "Available" : "Sold Out"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </section>
 
-          {visibleOrders.length === 0 ? (
-            <div className="emptyBox">
-              <h3>
-                {adminFilter === "active"
-                  ? "No active orders"
-                  : "No completed orders"}
-              </h3>
-              <p>
-                {adminFilter === "active"
-                  ? "New orders will appear here after customers place them."
-                  : "Delivered and cancelled orders will appear here."}
-              </p>
-            </div>
-          ) : adminViewMode === "kitchen" ? (
+          <section className="adminOrdersPanel">
+            {visibleOrders.length === 0 ? (
+              <div className="emptyBox">
+                <h3>
+                  {adminFilter === "active"
+                    ? "No active orders"
+                    : "No completed orders"}
+                </h3>
+                <p>
+                  {adminSearch
+                    ? "No orders match your search."
+                    : adminFilter === "active"
+                    ? "New orders will appear here after customers place them."
+                    : "Delivered and cancelled orders will appear here."}
+                </p>
+              </div>
+            ) : adminViewMode === "kitchen" ? (
               <div className="kitchenOrdersList">
                 {visibleOrders.map((order) => (
                   <div className="kitchenOrderCard" key={order.id}>
@@ -1394,8 +1546,8 @@ export default function App() {
                         <small>{order.time}</small>
                         <h3>{order.id}</h3>
                         <p>
-                          {order.customer.name} •{" "}
-                          {order.customer.phone || "No contact number"}
+                          {order.customer?.name} •{" "}
+                          {order.customer?.phone || "No contact number"}
                         </p>
                       </div>
 
@@ -1415,7 +1567,7 @@ export default function App() {
                       ))}
                     </div>
 
-                    {order.customer.note && (
+                    {order.customer?.note && (
                       <p className="note">Note: {order.customer.note}</p>
                     )}
 
@@ -1423,7 +1575,7 @@ export default function App() {
                       <div>
                         <small>Payment</small>
                         <p>{order.paymentStatus}</p>
-                        {order.customer.transactionId && (
+                        {order.customer?.transactionId && (
                           <small>Ref: {order.customer.transactionId}</small>
                         )}
                       </div>
@@ -1468,6 +1620,7 @@ export default function App() {
                 ))}
               </div>
             )}
+          </section>
         </main>
       )}
 
