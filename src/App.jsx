@@ -252,6 +252,7 @@ export default function App() {
   const [adminDateFilter, setAdminDateFilter] = useState("today");
   const [adminViewMode, setAdminViewMode] = useState("normal");
   const [adminSearch, setAdminSearch] = useState("");
+  const [isKitchenFullscreen, setIsKitchenFullscreen] = useState(false);
 
   const ADMIN_PIN = "6969";
   const [pinInput, setPinInput] = useState("");
@@ -1806,7 +1807,151 @@ await Promise.all(stockUpdatePromises);
       )}
 
       {view === "admin" && (
-        <main className="page adminPageGrid">
+        <main className={`page adminPageGrid ${isKitchenFullscreen ? "fullscreenKitchenShell" : ""}`}>
+          {isKitchenFullscreen ? (
+            <div className="fullscreenKitchenPage">
+              <div className="fullscreenKitchenHeader">
+                <div>
+                  <p className="eyebrow">Kitchen Mode</p>
+                  <h2>Live Active Orders</h2>
+                </div>
+
+                <button
+                  className="exitKitchenBtn"
+                  onClick={() => {
+                    setIsKitchenFullscreen(false);
+                    setAdminViewMode("normal");
+                  }}
+                >
+                  Exit
+                </button>
+              </div>
+
+              {activeOrders.length === 0 ? (
+                <div className="emptyBox">
+                  <h3>No active orders</h3>
+                  <p>New orders will appear here automatically.</p>
+                </div>
+              ) : (
+                <div className="fullscreenKitchenGrid">
+                  {activeOrders.map((order) => (
+                    <div className="fullscreenKitchenCard" key={order.id}>
+                      <div className="fullscreenKitchenTop">
+                        <div>
+                          <small>{order.time}</small>
+                          <h3>{order.id}</h3>
+                          <p>{order.customer?.name || "No name"}</p>
+                        </div>
+
+                        <span className={`status ${order.status}`}>
+                          {order.status}
+                        </span>
+                      </div>
+
+                      <div className="fullscreenKitchenItems">
+                        {(order.items || []).map((item) => (
+                          <div key={item.id}>
+                            <strong>{item.qty}×</strong>
+                            <span>{item.name}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {order.customer?.note && (
+                        <p className="kitchenNote">Note: {order.customer.note}</p>
+                      )}
+
+                      <div className="fullscreenKitchenMeta">
+                        <div>
+                          <small>Payment</small>
+                          <strong>{order.paymentStatus}</strong>
+                        </div>
+
+                        <div>
+                          <small>Total</small>
+                          <strong>{formatPrice(order.total)}</strong>
+                        </div>
+                      </div>
+
+                      <div className="paymentActionButtons">
+                        {order.paymentStatus !== "Payment verified" && (
+                          <button
+                            className="verifyPaymentBtn"
+                            onClick={() => verifyPayment(order.id)}
+                          >
+                            Payment Verified
+                          </button>
+                        )}
+
+                        <button
+                          className="paymentIssueBtn"
+                          onClick={() =>
+                            updatePaymentStatus(order.id, "Payment issue")
+                          }
+                        >
+                          Payment Issue
+                        </button>
+
+                        <button
+                          className="refundBtn"
+                          onClick={() => {
+                            const confirmRefund = window.confirm(
+                              "Mark this order as refunded?"
+                            );
+
+                            if (confirmRefund) {
+                              updatePaymentStatus(order.id, "Refunded");
+                            }
+                          }}
+                        >
+                          Refunded
+                        </button>
+
+                        <button
+                          className="duplicatePaymentBtn"
+                          onClick={() =>
+                            updatePaymentStatus(order.id, "Duplicate payment")
+                          }
+                        >
+                          Duplicate
+                        </button>
+                      </div>
+
+                      <button className="editOrderBtn" onClick={() => editOrder(order)}>
+                        Edit Order
+                      </button>
+
+                      <div className="statusButtons">
+                        <button onClick={() => updateStatus(order.id, "Preparing")}>
+                          Preparing
+                        </button>
+                        <button onClick={() => updateStatus(order.id, "Ready")}>
+                          Ready
+                        </button>
+                        <button onClick={() => updateStatus(order.id, "Delivered")}>
+                          Delivered
+                        </button>
+                        <button
+                          className="cancelOrderBtn"
+                          onClick={() => {
+                            const confirmCancel = window.confirm(
+                              "Cancel this order?"
+                            );
+                            if (confirmCancel) {
+                              updateStatus(order.id, "Cancelled");
+                            }
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
           {newOrderAlert && (
             <div className="newOrderAlert">🔔 New order received</div>
           )}
@@ -1845,7 +1990,10 @@ await Promise.all(stockUpdatePromises);
             <div className="adminViewTabs">
               <button
                 className={adminViewMode === "normal" ? "activeAdminFilter" : ""}
-                onClick={() => setAdminViewMode("normal")}
+                onClick={() => {
+                  setIsKitchenFullscreen(false);
+                  setAdminViewMode("normal");
+                }}
               >
                 Normal View
               </button>
@@ -1853,11 +2001,23 @@ await Promise.all(stockUpdatePromises);
               <button
                 className={adminViewMode === "kitchen" ? "activeAdminFilter" : ""}
                 onClick={() => {
+                  setIsKitchenFullscreen(false);
                   setAdminViewMode("kitchen");
                   setAdminFilter("active");
                 }}
               >
                 Kitchen View
+              </button>
+
+              <button
+                className={isKitchenFullscreen ? "activeAdminFilter" : ""}
+                onClick={() => {
+                  setIsKitchenFullscreen(true);
+                  setAdminViewMode("kitchen");
+                  setAdminFilter("active");
+                }}
+              >
+                Fullscreen Kitchen
               </button>
             </div>
 
@@ -2354,6 +2514,8 @@ await Promise.all(stockUpdatePromises);
               </div>
             )}
           </section>
+            </>
+          )}
         </main>
       )}
 
