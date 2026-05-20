@@ -422,6 +422,20 @@ const [isAdminUnlocked, setIsAdminUnlocked] = useState(
       alert("Could not update order status.");
     }
   }
+  async function verifyPayment(orderId) {
+  const selectedOrder = orders.find((order) => order.id === orderId);
+
+  if (!selectedOrder?.firestoreId) return;
+
+  try {
+    await updateDoc(doc(db, "orders", selectedOrder.firestoreId), {
+      paymentStatus: "Payment verified",
+    });
+  } catch (error) {
+    console.error("Error verifying payment:", error);
+    alert("Could not verify payment.");
+  }
+}
 
   async function clearOrders() {
     const confirmClear = window.confirm("Clear all orders?");
@@ -795,6 +809,14 @@ if (isAdminPage && !isAdminUnlocked) {
 
                     <strong>{formatPrice(order.total)}</strong>
                   </div>
+                  {order.paymentStatus !== "Payment verified" && (
+                  <button
+                  className="verifyPaymentBtn"
+                  onClick={() => verifyPayment(order.id)}
+                  >
+                  Payment Verified
+                  </button>
+                  )}
 
                   <div className="statusButtons">
                     <button onClick={() => updateStatus(order.id, "Preparing")}>
