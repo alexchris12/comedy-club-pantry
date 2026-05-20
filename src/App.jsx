@@ -828,6 +828,17 @@ if (isAdminPage && !isAdminUnlocked) {
                     <button onClick={() => updateStatus(order.id, "Delivered")}>
                       Delivered
                     </button>
+                    <button
+                      className="cancelOrderBtn"
+                    onClick={() => {
+                  const confirmCancel = window.confirm("Cancel this order?");
+                  if (confirmCancel) {
+                    updateStatus(order.id, "Cancelled");
+                  }
+                  }}
+                    >
+                    Cancel
+                  </button>
                   </div>
                 </div>
               ))}
