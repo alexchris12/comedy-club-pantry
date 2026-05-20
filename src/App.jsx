@@ -796,6 +796,21 @@ await Promise.all(stockUpdatePromises);
       alert("Could not verify payment.");
     }
   }
+  async function updatePaymentStatus(orderId, newPaymentStatus) {
+    const selectedOrder = orders.find((order) => order.id === orderId);
+
+    if (!selectedOrder?.firestoreId) return;
+
+    try {
+      await updateDoc(doc(db, "orders", selectedOrder.firestoreId), {
+        paymentStatus: newPaymentStatus,
+        paymentStatusUpdatedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error updating payment status:", error);
+      alert("Could not update payment status.");
+    }
+  }
   async function editOrder(order) {
   if (!order?.firestoreId) {
     alert("Order not found.");
@@ -2145,6 +2160,48 @@ await Promise.all(stockUpdatePromises);
                       <strong>{formatPrice(order.total)}</strong>
                     </div>
 
+                    <div className="paymentActionButtons">
+                      {order.paymentStatus !== "Payment verified" && (
+                        <button
+                          className="verifyPaymentBtn"
+                          onClick={() => verifyPayment(order.id)}
+                        >
+                          Payment Verified
+                        </button>
+                      )}
+
+                      <button
+                        className="paymentIssueBtn"
+                        onClick={() => updatePaymentStatus(order.id, "Payment issue")}
+                      >
+                        Payment Issue
+                      </button>
+
+                      <button
+                        className="refundBtn"
+                        onClick={() => {
+                          const confirmRefund = window.confirm(
+                            "Mark this order as refunded?"
+                          );
+
+                          if (confirmRefund) {
+                            updatePaymentStatus(order.id, "Refunded");
+                          }
+                        }}
+                      >
+                        Refunded
+                      </button>
+
+                      <button
+                        className="duplicatePaymentBtn"
+                        onClick={() =>
+                          updatePaymentStatus(order.id, "Duplicate payment")
+                        }
+                      >
+                        Duplicate
+                      </button>
+                    </div>
+
                     <button className="editOrderBtn" onClick={() => editOrder(order)}>
                       Edit Order
                     </button>
@@ -2222,14 +2279,47 @@ await Promise.all(stockUpdatePromises);
                       <strong>{formatPrice(order.total)}</strong>
                     </div>
 
-                    {order.paymentStatus !== "Payment verified" && (
+                    <div className="paymentActionButtons">
+                      {order.paymentStatus !== "Payment verified" && (
+                        <button
+                          className="verifyPaymentBtn"
+                          onClick={() => verifyPayment(order.id)}
+                        >
+                          Payment Verified
+                        </button>
+                      )}
+
                       <button
-                        className="verifyPaymentBtn"
-                        onClick={() => verifyPayment(order.id)}
+                        className="paymentIssueBtn"
+                        onClick={() => updatePaymentStatus(order.id, "Payment issue")}
                       >
-                        Payment Verified
+                        Payment Issue
                       </button>
-                    )}
+
+                      <button
+                        className="refundBtn"
+                        onClick={() => {
+                          const confirmRefund = window.confirm(
+                            "Mark this order as refunded?"
+                          );
+
+                          if (confirmRefund) {
+                            updatePaymentStatus(order.id, "Refunded");
+                          }
+                        }}
+                      >
+                        Refunded
+                      </button>
+
+                      <button
+                        className="duplicatePaymentBtn"
+                        onClick={() =>
+                          updatePaymentStatus(order.id, "Duplicate payment")
+                        }
+                      >
+                        Duplicate
+                      </button>
+                    </div>
 
                     <button className="editOrderBtn" onClick={() => editOrder(order)}>
                       Edit Order
