@@ -2184,3 +2184,105 @@ button {
   border-radius: 14px;
   line-height: 1.35;
 }
+/* === Admin order card UI polish === */
+
+.orderCard,
+.kitchenOrderCard,
+.fullscreenKitchenCard {
+  overflow: hidden;
+}
+
+.paymentActionButtons {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.paymentActionButtons button,
+.statusButtons button,
+.editOrderBtn {
+  min-height: 44px;
+  border: 0;
+  border-radius: 14px;
+  padding: 11px 10px;
+  font-weight: 950;
+  font-size: 13px;
+  line-height: 1.1;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.paymentActionButtons button:hover,
+.statusButtons button:hover,
+.editOrderBtn:hover {
+  transform: translateY(-1px);
+}
+
+.paymentActionButtons button:active,
+.statusButtons button:active,
+.editOrderBtn:active {
+  transform: translateY(0);
+  opacity: 0.9;
+}
+
+.paymentActionButtons .verifyPaymentBtn {
+  margin: 0;
+  background: #16a34a;
+  color: #ffffff;
+  grid-column: 1 / -1;
+}
+
+.paymentIssueBtn {
+  background: #f97316;
+  color: #ffffff;
+}
+
+.refundBtn {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.duplicatePaymentBtn {
+  background: #7c3aed;
+  color: #ffffff;
+}
+
+.editOrderBtn {
+  width: 100%;
+  margin-top: 12px;
+  background: #854d0e;
+  color: #fff7ed;
+}
+
+.statusButtons {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.statusButtons button {
+  background: #f15a00;
+  color: #ffffff;
+}
+
+.statusButtons .cancelOrderBtn {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.paymentStatus {
+  margin-top: 14px;
+}
+
+.paymentStatus p {
+  text-transform: capitalize;
+}
+
+.orderCard .note,
+.kitchenNote {
+  margin-top: 12px;
+  border-radius: 14px;
+  line-height: 1.35;
+}
