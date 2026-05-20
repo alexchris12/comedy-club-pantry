@@ -10,6 +10,7 @@ import {
   query,
   serverTimestamp,
   updateDoc,
+  setDoc,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import "./App.css";
@@ -190,6 +191,7 @@ export default function App() {
     transactionId: "",
   });
   const [orders, setOrders] = useState([]);
+  const [itemAvailability, setItemAvailability] = useState({});
   const [latestOrder, setLatestOrder] = useState(null);
   const [hasLoadedOrders, setHasLoadedOrders] = useState(false);
   const [newOrderAlert, setNewOrderAlert] = useState(false);
@@ -207,6 +209,18 @@ const [isAdminUnlocked, setIsAdminUnlocked] = useState(
 );
 
   useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "itemAvailability"), (snapshot) => {
+    const availabilityData = {};
+
+    snapshot.docs.forEach((document) => {
+      availabilityData[document.id] = document.data().available;
+    });
+
+    setItemAvailability(availabilityData);
+  });
+
+  return () => unsubscribe();
+}, []);
   const playNewOrderSound = () => {
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -231,7 +245,7 @@ const [isAdminUnlocked, setIsAdminUnlocked] = useState(
     collection(db, "orders"),
     orderBy("createdAt", "desc")
   );
-
+useEffect(() => {
   const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
     const liveOrders = snapshot.docs.map((document) => ({
       firestoreId: document.id,
@@ -269,6 +283,19 @@ const [isAdminUnlocked, setIsAdminUnlocked] = useState(
 
   return () => unsubscribe();
 }, [isAdminPage, isAdminUnlocked, hasLoadedOrders, soundEnabled]);
+useEffect(() => {
+  const unsubscribe = onSnapshot(collection(db, "itemAvailability"), (snapshot) => {
+    const availabilityData = {};
+
+    snapshot.docs.forEach((document) => {
+      availabilityData[document.id] = document.data().available;
+    });
+
+    setItemAvailability(availabilityData);
+  });
+
+  return () => unsubscribe();
+}, []);
 
   const categories = ["All", ...new Set(menuItems.map((item) => item.category))];
 
@@ -359,6 +386,9 @@ const totalOrderValue = dateFilteredOrders.reduce(
       return updated;
     });
   }
+  function isItemAvailable(itemId) {
+  return itemAvailability[itemId] !== false;
+}
 
   async function placeOrder() {
     if (!customer.name.trim() || !customer.phone.trim() || cartItems.length === 0) {
@@ -479,6 +509,20 @@ const totalOrderValue = dateFilteredOrders.reduce(
   } catch (error) {
     console.error("Error verifying payment:", error);
     alert("Could not verify payment.");
+  }
+}
+async function toggleItemAvailability(itemId) {
+  const currentAvailability = isItemAvailable(itemId);
+  const nextAvailability = !currentAvailability;
+
+  try {
+    await setDoc(doc(db, "itemAvailability", itemId), {
+      available: nextAvailability,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error("Error updating item availability:", error);
+    alert("Could not update item availability.");
   }
 }
 
@@ -633,11 +677,15 @@ if (isAdminPage && !isAdminUnlocked) {
                     <div className="foodBottom">
                       <span>{item.category}</span>
 
-                      {qty === 0 ? (
-                        <button className="addBtn" onClick={() => addItem(item.id)}>
-                          Add
-                        </button>
-                      ) : (
+                      {!isItemAvailable(item.id) ? (
+  <button className="soldOutBtn" disabled>
+    Sold Out
+  </button>
+) : qty === 0 ? (
+  <button className="addBtn" onClick={() => addItem(item.id)}>
+    Add
+  </button>
+) : (
                         <div className="qtyBox">
                           <button onClick={() => removeItem(item.id)}>-</button>
                           <b>{qty}</b>
@@ -853,6 +901,30 @@ if (isAdminPage && !isAdminUnlocked) {
   <div className="adminStatCard">
     <span>Total Value</span>
     <strong>{formatPrice(totalOrderValue)}</strong>
+  </div>
+</div>
+<div className="availabilityPanel">
+  <h3>Item Availability</h3>
+  <p>Mark items as sold out or available.</p>
+
+  <div className="availabilityList">
+    {menuItems.map((item) => (
+      <div className="availabilityItem" key={item.id}>
+        <div>
+          <strong>{item.name}</strong>
+          <span>
+            {item.category} • {formatPrice(item.price)}
+          </span>
+        </div>
+
+        <button
+          className={isItemAvailable(item.id) ? "availableBtn" : "soldOutToggleBtn"}
+          onClick={() => toggleItemAvailability(item.id)}
+        >
+          {isItemAvailable(item.id) ? "Available" : "Sold Out"}
+        </button>
+      </div>
+    ))}
   </div>
 </div>
 

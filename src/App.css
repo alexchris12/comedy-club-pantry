@@ -811,3 +811,86 @@ button {
   background: #4a1409;
   color: #fff7ed;
 }
+.soldOutBtn {
+  border: 0;
+  background: #a8a29e;
+  color: #ffffff;
+  font-weight: 950;
+  padding: 9px 18px;
+  border-radius: 999px;
+  cursor: not-allowed;
+}
+
+.availabilityPanel {
+  margin: 16px 0;
+  background: #fffaf3;
+  border: 1px solid rgba(241, 90, 0, 0.22);
+  border-radius: 22px;
+  padding: 16px;
+  box-shadow: 0 10px 28px rgba(74, 20, 9, 0.06);
+}
+
+.availabilityPanel h3 {
+  margin: 0;
+  color: #4a1409;
+  font-size: 18px;
+}
+
+.availabilityPanel p {
+  margin: 6px 0 14px;
+  color: rgba(74, 20, 9, 0.62);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.availabilityList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.availabilityItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #f6e6d8;
+}
+
+.availabilityItem strong {
+  display: block;
+  color: #4a1409;
+  font-size: 14px;
+}
+
+.availabilityItem span {
+  display: block;
+  margin-top: 3px;
+  color: rgba(74, 20, 9, 0.58);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.availableBtn,
+.soldOutToggleBtn {
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.availableBtn {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.soldOutToggleBtn {
+  background: #dc2626;
+  color: #ffffff;
+}
