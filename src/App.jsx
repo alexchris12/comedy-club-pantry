@@ -1926,6 +1926,22 @@ await Promise.all(stockUpdatePromises);
                     {order.customer?.note && (
                       <p className="note">Note: {order.customer.note}</p>
                     )}
+                    {order.feedback && (
+  <div className="adminFeedbackBox">
+    <small>Customer Feedback</small>
+
+    <div className="adminFeedbackStars">
+      {"★".repeat(Number(order.feedback.rating || 0))}
+      {"☆".repeat(5 - Number(order.feedback.rating || 0))}
+    </div>
+
+    {order.feedback.comment ? (
+      <p>{order.feedback.comment}</p>
+    ) : (
+      <p>No comment added.</p>
+    )}
+  </div>
+)}
 
                     <div className="paymentStatus">
                       <div>

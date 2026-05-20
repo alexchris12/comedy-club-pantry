@@ -1641,3 +1641,10 @@ button {
   color: rgba(74, 20, 9, 0.7);
   font-weight: 750;
 }
+.adminFeedbackStars {
+  margin-top: 6px;
+  color: #f15a00;
+  font-size: 20px;
+  font-weight: 1000;
+  letter-spacing: 0.04em;
+}
