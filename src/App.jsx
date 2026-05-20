@@ -18,7 +18,7 @@ import "./App.css";
 const UPI_ID = "shashisuryavanshi7647-2@oksbi";
 const PAYEE_NAME = "Penfry";
 
-const menuItems = [
+const DEFAULT_MENU_ITEMS = [
   {
     id: "saste-nashe",
     name: "Saste Nashe",
@@ -175,6 +175,8 @@ function getItemIcon(item) {
 }
 
 export default function App() {
+  const [menuItems, setMenuItems] = useState(DEFAULT_MENU_ITEMS);
+
   const [view, setView] = useState(
     window.location.pathname === "/admin" ||
       window.location.search.includes("admin=1")
@@ -200,6 +202,7 @@ export default function App() {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [adminFilter, setAdminFilter] = useState("active");
   const [adminDateFilter, setAdminDateFilter] = useState("today");
+  const [adminViewMode, setAdminViewMode] = useState("normal");
 
   const isAdminPage =
     window.location.pathname === "/admin" ||
@@ -295,6 +298,75 @@ export default function App() {
         setItemAvailability(availabilityData);
       }
     );
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "menuItems"), (snapshot) => {
+      const firebaseMenuData = {};
+
+      snapshot.docs.forEach((document) => {
+        firebaseMenuData[document.id] = document.data();
+      });
+
+      const mergedMenuItems = DEFAULT_MENU_ITEMS.map((item) => {
+        const firebaseItem = firebaseMenuData[item.id];
+
+        if (!firebaseItem) return item;
+
+        return {
+          ...item,
+          ...firebaseItem,
+          id: item.id,
+          category: firebaseItem.category || item.category,
+          price: Number(firebaseItem.price ?? item.price),
+        };
+      });
+
+      setMenuItems(mergedMenuItems);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "menuItems"), (snapshot) => {
+      const firebaseMenuData = {};
+
+      snapshot.docs.forEach((document) => {
+        firebaseMenuData[document.id] = document.data();
+      });
+
+      const defaultIds = new Set(DEFAULT_MENU_ITEMS.map((item) => item.id));
+
+      const mergedDefaultItems = DEFAULT_MENU_ITEMS.map((item) => {
+        const firebaseItem = firebaseMenuData[item.id];
+
+        if (!firebaseItem) return item;
+
+        return {
+          ...item,
+          ...firebaseItem,
+          id: item.id,
+          category: firebaseItem.category || item.category,
+          price: Number(firebaseItem.price ?? item.price),
+        };
+      });
+
+      const customItems = Object.entries(firebaseMenuData)
+        .filter(([id]) => !defaultIds.has(id))
+        .map(([id, firebaseItem]) => ({
+          id,
+          name: firebaseItem.name || "New Item",
+          category: firebaseItem.category || "Munchies",
+          price: Number(firebaseItem.price || 0),
+          desc: firebaseItem.desc || "Custom item",
+          custom: true,
+        }));
+
+      setMenuItems([...mergedDefaultItems, ...customItems]);
+    });
 
     return () => unsubscribe();
   }, []);
@@ -540,6 +612,179 @@ export default function App() {
     } catch (error) {
       console.error("Error updating item availability:", error);
       alert("Could not update item availability.");
+    }
+  }
+
+  async function editMenuItem(item) {
+    const newName = window.prompt("Edit item name:", item.name);
+    if (newName === null) return;
+
+    const newDesc = window.prompt("Edit item description:", item.desc);
+    if (newDesc === null) return;
+
+    const newPriceInput = window.prompt("Edit item price:", String(item.price));
+    if (newPriceInput === null) return;
+
+    const newPrice = Number(newPriceInput);
+
+    if (!newName.trim()) {
+      alert("Item name cannot be empty.");
+      return;
+    }
+
+    if (!newDesc.trim()) {
+      alert("Description cannot be empty.");
+      return;
+    }
+
+    if (Number.isNaN(newPrice) || newPrice < 0) {
+      alert("Please enter a valid price.");
+      return;
+    }
+
+    try {
+      await setDoc(
+        doc(db, "menuItems", item.id),
+        {
+          name: newName.trim(),
+          desc: newDesc.trim(),
+          price: newPrice,
+          category: item.category,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      alert("Menu item updated.");
+    } catch (error) {
+      console.error("Error updating menu item:", error);
+      alert("Could not update menu item.");
+    }
+  }
+
+  function createMenuItemId(name) {
+    return `${name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")}-${Date.now().toString().slice(-5)}`;
+  }
+
+  async function editMenuItem(item) {
+    const newName = window.prompt("Edit item name:", item.name);
+    if (newName === null) return;
+
+    const newDesc = window.prompt("Edit item description:", item.desc);
+    if (newDesc === null) return;
+
+    const newPriceInput = window.prompt("Edit item price:", String(item.price));
+    if (newPriceInput === null) return;
+
+    const newCategory = window.prompt("Edit category:", item.category);
+    if (newCategory === null) return;
+
+    const newPrice = Number(newPriceInput);
+
+    if (!newName.trim()) {
+      alert("Item name cannot be empty.");
+      return;
+    }
+
+    if (!newDesc.trim()) {
+      alert("Description cannot be empty.");
+      return;
+    }
+
+    if (!newCategory.trim()) {
+      alert("Category cannot be empty.");
+      return;
+    }
+
+    if (Number.isNaN(newPrice) || newPrice < 0) {
+      alert("Please enter a valid price.");
+      return;
+    }
+
+    try {
+      await setDoc(
+        doc(db, "menuItems", item.id),
+        {
+          name: newName.trim(),
+          desc: newDesc.trim(),
+          price: newPrice,
+          category: newCategory.trim(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      alert("Menu item updated.");
+    } catch (error) {
+      console.error("Error updating menu item:", error);
+      alert("Could not update menu item.");
+    }
+  }
+
+  async function addNewMenuItem() {
+    const name = window.prompt("New item name:");
+    if (name === null) return;
+
+    const desc = window.prompt("Item description:");
+    if (desc === null) return;
+
+    const priceInput = window.prompt("Item price:");
+    if (priceInput === null) return;
+
+    const categoryInput = window.prompt(
+      "Category:",
+      categories.find((cat) => cat !== "All") || "Munchies"
+    );
+    if (categoryInput === null) return;
+
+    const price = Number(priceInput);
+
+    if (!name.trim()) {
+      alert("Item name cannot be empty.");
+      return;
+    }
+
+    if (!desc.trim()) {
+      alert("Description cannot be empty.");
+      return;
+    }
+
+    if (!categoryInput.trim()) {
+      alert("Category cannot be empty.");
+      return;
+    }
+
+    if (Number.isNaN(price) || price < 0) {
+      alert("Please enter a valid price.");
+      return;
+    }
+
+    const itemId = createMenuItemId(name);
+
+    try {
+      await setDoc(doc(db, "menuItems", itemId), {
+        name: name.trim(),
+        desc: desc.trim(),
+        price,
+        category: categoryInput.trim(),
+        custom: true,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      await setDoc(doc(db, "itemAvailability", itemId), {
+        available: true,
+        updatedAt: serverTimestamp(),
+      });
+
+      alert("New menu item added.");
+    } catch (error) {
+      console.error("Error adding menu item:", error);
+      alert("Could not add menu item.");
     }
   }
 
@@ -945,6 +1190,25 @@ export default function App() {
             </div>
           </div>
 
+          <div className="adminViewTabs">
+            <button
+              className={adminViewMode === "normal" ? "activeAdminFilter" : ""}
+              onClick={() => setAdminViewMode("normal")}
+            >
+              Normal View
+            </button>
+
+            <button
+              className={adminViewMode === "kitchen" ? "activeAdminFilter" : ""}
+              onClick={() => {
+                setAdminViewMode("kitchen");
+                setAdminFilter("active");
+              }}
+            >
+              Kitchen View
+            </button>
+          </div>
+
           <div className="adminDateTabs">
             <button
               className={adminDateFilter === "today" ? "activeAdminFilter" : ""}
@@ -999,34 +1263,53 @@ export default function App() {
             </div>
           </div>
 
-          <div className="availabilityPanel">
-            <h3>Item Availability</h3>
-            <p>Mark items as sold out or available.</p>
-
-            <div className="availabilityList">
-              {menuItems.map((item) => (
-                <div className="availabilityItem" key={item.id}>
-                  <div>
-                    <strong>{item.name}</strong>
-                    <span>
-                      {item.category} • {formatPrice(item.price)}
-                    </span>
-                  </div>
-
-                  <button
-                    className={
-                      isItemAvailable(item.id)
-                        ? "availableBtn"
-                        : "soldOutToggleBtn"
-                    }
-                    onClick={() => toggleItemAvailability(item.id)}
-                  >
-                    {isItemAvailable(item.id) ? "Available" : "Sold Out"}
-                  </button>
+          {adminViewMode === "normal" && (
+            <div className="availabilityPanel">
+              <div className="availabilityPanelHeader">
+                <div>
+                  <h3>Item Availability</h3>
+                  <p>Mark items as sold out or available.</p>
                 </div>
-              ))}
+
+                <button className="addMenuItemBtn" onClick={addNewMenuItem}>
+                  + Add Item
+                </button>
+              </div>
+
+              <div className="availabilityList">
+                {menuItems.map((item) => (
+                  <div className="availabilityItem" key={item.id}>
+                    <div>
+                      <strong>{item.name}</strong>
+                      <span>
+                        {item.category} • {formatPrice(item.price)}
+                      </span>
+                    </div>
+
+                    <div className="availabilityActions">
+                      <button
+                        className="editMenuItemBtn"
+                        onClick={() => editMenuItem(item)}
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        className={
+                          isItemAvailable(item.id)
+                            ? "availableBtn"
+                            : "soldOutToggleBtn"
+                        }
+                        onClick={() => toggleItemAvailability(item.id)}
+                      >
+                        {isItemAvailable(item.id) ? "Available" : "Sold Out"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {visibleOrders.length === 0 ? (
             <div className="emptyBox">
@@ -1041,89 +1324,150 @@ export default function App() {
                   : "Delivered and cancelled orders will appear here."}
               </p>
             </div>
-          ) : (
-            <div className="ordersList">
-              {visibleOrders.map((order) => (
-                <div className="orderCard" key={order.id}>
-                  <div className="orderTop">
-                    <div>
-                      <small>{order.time}</small>
-                      <h3>{order.id}</h3>
-                      <p>
-                        {order.customer.name} •{" "}
-                        {order.customer.phone || "No contact number"}
-                      </p>
-                    </div>
-
-                    <span className={`status ${order.status}`}>
-                      {order.status}
-                    </span>
-                  </div>
-
-                  <div className="orderItems">
-                    {order.items.map((item) => (
-                      <div key={item.id}>
-                        <span>
-                          {item.qty} × {item.name}
-                        </span>
-                        <strong>{formatPrice(item.price * item.qty)}</strong>
+          ) : adminViewMode === "kitchen" ? (
+              <div className="kitchenOrdersList">
+                {visibleOrders.map((order) => (
+                  <div className="kitchenOrderCard" key={order.id}>
+                    <div className="kitchenOrderTop">
+                      <div>
+                        <small>{order.time}</small>
+                        <h3>{order.id}</h3>
+                        <p>{order.customer?.name || "No name"}</p>
                       </div>
-                    ))}
-                  </div>
 
-                  {order.customer.note && (
-                    <p className="note">Note: {order.customer.note}</p>
-                  )}
-
-                  <div className="paymentStatus">
-                    <div>
-                      <small>Payment</small>
-                      <p>{order.paymentStatus}</p>
-                      {order.customer.transactionId && (
-                        <small>Ref: {order.customer.transactionId}</small>
-                      )}
+                      <span className={`status ${order.status}`}>
+                        {order.status}
+                      </span>
                     </div>
 
-                    <strong>{formatPrice(order.total)}</strong>
-                  </div>
+                    <div className="kitchenItems">
+                      {order.items.map((item) => (
+                        <div key={item.id}>
+                          <strong>{item.qty}×</strong>
+                          <span>{item.name}</span>
+                        </div>
+                      ))}
+                    </div>
 
-                  {order.paymentStatus !== "Payment verified" && (
-                    <button
-                      className="verifyPaymentBtn"
-                      onClick={() => verifyPayment(order.id)}
-                    >
-                      Payment Verified
-                    </button>
-                  )}
+                    {order.customer?.note && (
+                      <p className="kitchenNote">Note: {order.customer.note}</p>
+                    )}
 
-                  <div className="statusButtons">
-                    <button onClick={() => updateStatus(order.id, "Preparing")}>
-                      Preparing
-                    </button>
-                    <button onClick={() => updateStatus(order.id, "Ready")}>
-                      Ready
-                    </button>
-                    <button onClick={() => updateStatus(order.id, "Delivered")}>
-                      Delivered
-                    </button>
-                    <button
-                      className="cancelOrderBtn"
-                      onClick={() => {
-                        const confirmCancel = window.confirm(
-                          "Cancel this order?"
-                        );
-                        if (confirmCancel) {
-                          updateStatus(order.id, "Cancelled");
-                        }
-                      }}
-                    >
-                      Cancel
-                    </button>
+                    <div className="kitchenTotal">
+                      <span>Total</span>
+                      <strong>{formatPrice(order.total)}</strong>
+                    </div>
+
+                    <div className="statusButtons">
+                      <button onClick={() => updateStatus(order.id, "Preparing")}>
+                        Preparing
+                      </button>
+                      <button onClick={() => updateStatus(order.id, "Ready")}>
+                        Ready
+                      </button>
+                      <button onClick={() => updateStatus(order.id, "Delivered")}>
+                        Delivered
+                      </button>
+                      <button
+                        className="cancelOrderBtn"
+                        onClick={() => {
+                          const confirmCancel = window.confirm(
+                            "Cancel this order?"
+                          );
+                          if (confirmCancel) {
+                            updateStatus(order.id, "Cancelled");
+                          }
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            ) : (
+              <div className="ordersList">
+                {visibleOrders.map((order) => (
+                  <div className="orderCard" key={order.id}>
+                    <div className="orderTop">
+                      <div>
+                        <small>{order.time}</small>
+                        <h3>{order.id}</h3>
+                        <p>
+                          {order.customer.name} •{" "}
+                          {order.customer.phone || "No contact number"}
+                        </p>
+                      </div>
+
+                      <span className={`status ${order.status}`}>
+                        {order.status}
+                      </span>
+                    </div>
+
+                    <div className="orderItems">
+                      {order.items.map((item) => (
+                        <div key={item.id}>
+                          <span>
+                            {item.qty} × {item.name}
+                          </span>
+                          <strong>{formatPrice(item.price * item.qty)}</strong>
+                        </div>
+                      ))}
+                    </div>
+
+                    {order.customer.note && (
+                      <p className="note">Note: {order.customer.note}</p>
+                    )}
+
+                    <div className="paymentStatus">
+                      <div>
+                        <small>Payment</small>
+                        <p>{order.paymentStatus}</p>
+                        {order.customer.transactionId && (
+                          <small>Ref: {order.customer.transactionId}</small>
+                        )}
+                      </div>
+
+                      <strong>{formatPrice(order.total)}</strong>
+                    </div>
+
+                    {order.paymentStatus !== "Payment verified" && (
+                      <button
+                        className="verifyPaymentBtn"
+                        onClick={() => verifyPayment(order.id)}
+                      >
+                        Payment Verified
+                      </button>
+                    )}
+
+                    <div className="statusButtons">
+                      <button onClick={() => updateStatus(order.id, "Preparing")}>
+                        Preparing
+                      </button>
+                      <button onClick={() => updateStatus(order.id, "Ready")}>
+                        Ready
+                      </button>
+                      <button onClick={() => updateStatus(order.id, "Delivered")}>
+                        Delivered
+                      </button>
+                      <button
+                        className="cancelOrderBtn"
+                        onClick={() => {
+                          const confirmCancel = window.confirm(
+                            "Cancel this order?"
+                          );
+                          if (confirmCancel) {
+                            updateStatus(order.id, "Cancelled");
+                          }
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
         </main>
       )}
 
