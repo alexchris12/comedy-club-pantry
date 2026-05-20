@@ -796,6 +796,90 @@ await Promise.all(stockUpdatePromises);
       alert("Could not verify payment.");
     }
   }
+  async function editOrder(order) {
+  if (!order?.firestoreId) {
+    alert("Order not found.");
+    return;
+  }
+
+  const newName = window.prompt(
+    "Edit customer name:",
+    order.customer?.name || ""
+  );
+  if (newName === null) return;
+
+  const newPhone = window.prompt(
+    "Edit customer phone:",
+    order.customer?.phone || ""
+  );
+  if (newPhone === null) return;
+
+  const newNote = window.prompt(
+    "Edit special note:",
+    order.customer?.note || ""
+  );
+  if (newNote === null) return;
+
+  const updatedItems = [];
+
+  for (const item of order.items || []) {
+    const qtyInput = window.prompt(
+      `Quantity for ${item.name}. Enter 0 to remove item:`,
+      String(item.qty || 1)
+    );
+
+    if (qtyInput === null) return;
+
+    const newQty = Number(qtyInput);
+
+    if (!Number.isInteger(newQty) || newQty < 0) {
+      alert("Please enter a valid whole number.");
+      return;
+    }
+
+    if (newQty > 0) {
+      updatedItems.push({
+        ...item,
+        qty: newQty,
+      });
+    }
+  }
+
+  if (updatedItems.length === 0) {
+    alert("Order must have at least one item.");
+    return;
+  }
+
+  const updatedTotal = updatedItems.reduce(
+    (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0),
+    0
+  );
+
+  const confirmUpdate = window.confirm(
+    `Update order ${order.id}?\n\nNew total: ${formatPrice(updatedTotal)}`
+  );
+
+  if (!confirmUpdate) return;
+
+  try {
+    await updateDoc(doc(db, "orders", order.firestoreId), {
+      customer: {
+        ...order.customer,
+        name: newName.trim(),
+        phone: newPhone.trim(),
+        note: newNote.trim(),
+      },
+      items: updatedItems,
+      total: updatedTotal,
+      editedAt: new Date().toISOString(),
+    });
+
+    alert("Order updated.");
+  } catch (error) {
+    console.error("Error editing order:", error);
+    alert("Could not update order.");
+  }
+}
   async function submitOrderFeedback() {
   if (!trackedOrder?.firestoreId) {
     alert("Order not found.");
@@ -2061,6 +2145,10 @@ await Promise.all(stockUpdatePromises);
                       <strong>{formatPrice(order.total)}</strong>
                     </div>
 
+                    <button className="editOrderBtn" onClick={() => editOrder(order)}>
+                      Edit Order
+                    </button>
+
                     <div className="statusButtons">
                       <button onClick={() => updateStatus(order.id, "Preparing")}>
                         Preparing
@@ -2142,6 +2230,10 @@ await Promise.all(stockUpdatePromises);
                         Payment Verified
                       </button>
                     )}
+
+                    <button className="editOrderBtn" onClick={() => editOrder(order)}>
+                      Edit Order
+                    </button>
 
                     <div className="statusButtons">
                       <button onClick={() => updateStatus(order.id, "Preparing")}>
