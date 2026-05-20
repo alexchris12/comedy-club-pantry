@@ -565,6 +565,25 @@ const hourlyOrdersMap = dateFilteredOrders.reduce((hourMap, order) => {
 
 const peakOrderHour =
   Object.entries(hourlyOrdersMap).sort((a, b) => b[1] - a[1])[0] || null;
+  const feedbackOrders = dateFilteredOrders.filter(
+  (order) => order.feedback?.rating
+);
+
+const averageFeedbackRating =
+  feedbackOrders.length > 0
+    ? (
+        feedbackOrders.reduce(
+          (sum, order) => sum + Number(order.feedback.rating || 0),
+          0
+        ) / feedbackOrders.length
+      ).toFixed(1)
+    : "—";
+
+const latestFeedbackOrder = feedbackOrders[0] || null;
+
+const lowRatedOrders = feedbackOrders.filter(
+  (order) => Number(order.feedback.rating || 0) <= 3
+);
 
   const trackedOrder = orders.find(
     (order) => order.id?.toUpperCase() === trackOrderId.toUpperCase()
@@ -1710,8 +1729,8 @@ await Promise.all(stockUpdatePromises);
                 Export CSV
               </button>
               <button className="exportCsvBtn" onClick={downloadDailyReportCsv}>
-  Daily Report
-</button>
+               Daily Report
+              </button>
 
               <button className="clearBtn" onClick={clearCompletedOrders}>
                 Clear Completed
@@ -1843,6 +1862,64 @@ await Promise.all(stockUpdatePromises);
         <strong>{formatPrice(verifiedSalesTotal)}</strong>
       </div>
     </div>
+  </div>
+)}
+{adminViewMode === "normal" && (
+  <div className="feedbackAnalyticsPanel">
+    <div className="analyticsHeader">
+      <div>
+        <h3>Feedback Analytics</h3>
+        <p>Customer ratings and recent feedback.</p>
+      </div>
+    </div>
+
+    <div className="analyticsGrid">
+      <div className="analyticsCard">
+        <span>Average Rating</span>
+        <strong>
+          {averageFeedbackRating === "—" ? "—" : `${averageFeedbackRating} ★`}
+        </strong>
+      </div>
+
+      <div className="analyticsCard">
+        <span>Total Feedback</span>
+        <strong>{feedbackOrders.length}</strong>
+      </div>
+
+      <div className="analyticsCard">
+        <span>Low Rated</span>
+        <strong>{lowRatedOrders.length}</strong>
+        <small>3 stars or below</small>
+      </div>
+
+      <div className="analyticsCard">
+        <span>Latest Review</span>
+        <strong>
+          {latestFeedbackOrder
+            ? `${latestFeedbackOrder.feedback.rating} ★`
+            : "—"}
+        </strong>
+        {latestFeedbackOrder?.feedback?.comment && (
+          <small>{latestFeedbackOrder.feedback.comment}</small>
+        )}
+      </div>
+    </div>
+
+    {lowRatedOrders.length > 0 && (
+      <div className="lowRatedList">
+        <small>Needs attention</small>
+
+        {lowRatedOrders.slice(0, 3).map((order) => (
+          <div className="lowRatedItem" key={order.id}>
+            <strong>{order.id}</strong>
+            <span>
+              {order.feedback.rating} ★
+              {order.feedback.comment ? ` — ${order.feedback.comment}` : ""}
+            </span>
+          </div>
+        ))}
+      </div>
+    )}
   </div>
 )}
 
