@@ -9,8 +9,8 @@ import {
   orderBy,
   query,
   serverTimestamp,
-  updateDoc,
   setDoc,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import "./App.css";
@@ -134,7 +134,7 @@ const menuItems = [
 ];
 
 function formatPrice(amount) {
-  return `₹${amount.toLocaleString("en-IN")}`;
+  return `₹${Number(amount || 0).toLocaleString("en-IN")}`;
 }
 
 function createUpiLink(amount, orderId) {
@@ -176,11 +176,12 @@ function getItemIcon(item) {
 
 export default function App() {
   const [view, setView] = useState(
-  window.location.pathname === "/admin" ||
-    window.location.search.includes("admin=1")
-    ? "admin"
-    : "menu"
-);
+    window.location.pathname === "/admin" ||
+      window.location.search.includes("admin=1")
+      ? "admin"
+      : "menu"
+  );
+
   const [cart, setCart] = useState({});
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -190,6 +191,7 @@ export default function App() {
     note: "",
     transactionId: "",
   });
+
   const [orders, setOrders] = useState([]);
   const [itemAvailability, setItemAvailability] = useState({});
   const [latestOrder, setLatestOrder] = useState(null);
@@ -197,32 +199,21 @@ export default function App() {
   const [newOrderAlert, setNewOrderAlert] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [adminFilter, setAdminFilter] = useState("active");
-  
+  const [adminDateFilter, setAdminDateFilter] = useState("today");
 
   const isAdminPage =
-  window.location.pathname === "/admin" ||
-  window.location.search.includes("admin=1");
+    window.location.pathname === "/admin" ||
+    window.location.search.includes("admin=1");
+
   const ADMIN_PIN = "6969";
-const [pinInput, setPinInput] = useState("");
-const [isAdminUnlocked, setIsAdminUnlocked] = useState(
-  sessionStorage.getItem("penfryAdminUnlocked") === "true"
-);
+  const [pinInput, setPinInput] = useState("");
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState(
+    sessionStorage.getItem("penfryAdminUnlocked") === "true"
+  );
 
-  useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "itemAvailability"), (snapshot) => {
-    const availabilityData = {};
-
-    snapshot.docs.forEach((document) => {
-      availabilityData[document.id] = document.data().available;
-    });
-
-    setItemAvailability(availabilityData);
-  });
-
-  return () => unsubscribe();
-}, []);
   const playNewOrderSound = () => {
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const audioContext = new (window.AudioContext ||
+      window.webkitAudioContext)();
 
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
@@ -231,8 +222,14 @@ const [isAdminUnlocked, setIsAdminUnlocked] = useState(
     oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
 
     gainNode.gain.setValueAtTime(0.001, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.35, audioContext.currentTime + 0.02);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.35);
+    gainNode.gain.exponentialRampToValueAtTime(
+      0.35,
+      audioContext.currentTime + 0.02
+    );
+    gainNode.gain.exponentialRampToValueAtTime(
+      0.001,
+      audioContext.currentTime + 0.35
+    );
 
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
@@ -241,61 +238,66 @@ const [isAdminUnlocked, setIsAdminUnlocked] = useState(
     oscillator.stop(audioContext.currentTime + 0.36);
   };
 
-  const ordersQuery = query(
-    collection(db, "orders"),
-    orderBy("createdAt", "desc")
-  );
-useEffect(() => {
-  const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
-    const liveOrders = snapshot.docs.map((document) => ({
-      firestoreId: document.id,
-      ...document.data(),
-    }));
+  useEffect(() => {
+    const ordersQuery = query(
+      collection(db, "orders"),
+      orderBy("createdAt", "desc")
+    );
 
-    setOrders((previousOrders) => {
-      const previousIds = previousOrders.map((order) => order.id);
-      const hasNewOrder = liveOrders.some(
-        (order) => !previousIds.includes(order.id)
-      );
+    const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
+      const liveOrders = snapshot.docs.map((document) => ({
+        firestoreId: document.id,
+        ...document.data(),
+      }));
 
-      if (
-        isAdminPage &&
-        isAdminUnlocked &&
-       hasLoadedOrders &&
-        hasNewOrder
-      ) {
-     if (soundEnabled) {
-    playNewOrderSound();
-     }
+      setOrders((previousOrders) => {
+        const previousIds = previousOrders.map((order) => order.id);
+        const hasNewOrder = liveOrders.some(
+          (order) => !previousIds.includes(order.id)
+        );
 
-     setNewOrderAlert(true);
+        if (
+          isAdminPage &&
+          isAdminUnlocked &&
+          hasLoadedOrders &&
+          hasNewOrder
+        ) {
+          if (soundEnabled) {
+            playNewOrderSound();
+          }
 
-      setTimeout(() => {
-      setNewOrderAlert(false);
-    }, 4000);
-    }
+          setNewOrderAlert(true);
 
-      return liveOrders;
+          setTimeout(() => {
+            setNewOrderAlert(false);
+          }, 4000);
+        }
+
+        return liveOrders;
+      });
+
+      setHasLoadedOrders(true);
     });
 
-    setHasLoadedOrders(true);
-  });
+    return () => unsubscribe();
+  }, [isAdminPage, isAdminUnlocked, hasLoadedOrders, soundEnabled]);
 
-  return () => unsubscribe();
-}, [isAdminPage, isAdminUnlocked, hasLoadedOrders, soundEnabled]);
-useEffect(() => {
-  const unsubscribe = onSnapshot(collection(db, "itemAvailability"), (snapshot) => {
-    const availabilityData = {};
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, "itemAvailability"),
+      (snapshot) => {
+        const availabilityData = {};
 
-    snapshot.docs.forEach((document) => {
-      availabilityData[document.id] = document.data().available;
-    });
+        snapshot.docs.forEach((document) => {
+          availabilityData[document.id] = document.data().available;
+        });
 
-    setItemAvailability(availabilityData);
-  });
+        setItemAvailability(availabilityData);
+      }
+    );
 
-  return () => unsubscribe();
-}, []);
+    return () => unsubscribe();
+  }, []);
 
   const categories = ["All", ...new Set(menuItems.map((item) => item.category))];
 
@@ -319,52 +321,54 @@ useEffect(() => {
 
   const total = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
   const itemCount = cartItems.reduce((sum, item) => sum + item.qty, 0);
+
   const todayDate = new Date().toLocaleDateString("en-IN");
 
-const getOrderDate = (order) => {
-  if (order.createdAt?.toDate) {
-    return order.createdAt.toDate().toLocaleDateString("en-IN");
-  }
+  const getOrderDate = (order) => {
+    if (order.createdAt?.toDate) {
+      return order.createdAt.toDate().toLocaleDateString("en-IN");
+    }
 
-  if (order.createdAt) {
-    return new Date(order.createdAt).toLocaleDateString("en-IN");
-  }
+    if (order.createdAt) {
+      return new Date(order.createdAt).toLocaleDateString("en-IN");
+    }
 
-  return todayDate;
-};
+    return todayDate;
+  };
 
-const [adminDateFilter, setAdminDateFilter] = useState("today");
+  const dateFilteredOrders =
+    adminDateFilter === "today"
+      ? orders.filter((order) => getOrderDate(order) === todayDate)
+      : orders;
 
-const dateFilteredOrders =
-  adminDateFilter === "today"
-    ? orders.filter((order) => getOrderDate(order) === todayDate)
-    : orders;
+  const activeOrders = dateFilteredOrders.filter((order) =>
+    ["New", "Preparing", "Ready"].includes(order.status)
+  );
 
-const activeOrders = dateFilteredOrders.filter((order) =>
-  ["New", "Preparing", "Ready"].includes(order.status)
-);
+  const completedOrders = dateFilteredOrders.filter((order) =>
+    ["Delivered", "Cancelled"].includes(order.status)
+  );
 
-const completedOrders = dateFilteredOrders.filter((order) =>
-  ["Delivered", "Cancelled"].includes(order.status)
-);
+  const visibleOrders =
+    adminFilter === "active" ? activeOrders : completedOrders;
 
-const visibleOrders = adminFilter === "active" ? activeOrders : completedOrders;
+  const verifiedOrders = dateFilteredOrders.filter(
+    (order) => order.paymentStatus === "Payment verified"
+  );
 
-const verifiedOrders = dateFilteredOrders.filter(
-  (order) => order.paymentStatus === "Payment verified"
-);
+  const verifiedSalesTotal = verifiedOrders.reduce(
+    (sum, order) => sum + Number(order.total || 0),
+    0
+  );
 
-const verifiedSalesTotal = verifiedOrders.reduce(
-  (sum, order) => sum + Number(order.total || 0),
-  0
-);
-
-const totalOrderValue = dateFilteredOrders.reduce(
-  (sum, order) => sum + Number(order.total || 0),
-  0
-);
+  const totalOrderValue = dateFilteredOrders.reduce(
+    (sum, order) => sum + Number(order.total || 0),
+    0
+  );
 
   function addItem(id) {
+    if (!isItemAvailable(id)) return;
+
     setCart((prev) => ({
       ...prev,
       [id]: (prev[id] || 0) + 1,
@@ -386,13 +390,23 @@ const totalOrderValue = dateFilteredOrders.reduce(
       return updated;
     });
   }
+
   function isItemAvailable(itemId) {
-  return itemAvailability[itemId] !== false;
-}
+    return itemAvailability[itemId] !== false;
+  }
 
   async function placeOrder() {
     if (!customer.name.trim() || !customer.phone.trim() || cartItems.length === 0) {
       alert("Please enter your name, contact number and add items.");
+      return;
+    }
+
+    const unavailableCartItem = cartItems.find(
+      (item) => !isItemAvailable(item.id)
+    );
+
+    if (unavailableCartItem) {
+      alert(`${unavailableCartItem.name} is sold out. Please remove it from cart.`);
       return;
     }
 
@@ -416,19 +430,20 @@ const totalOrderValue = dateFilteredOrders.reduce(
     };
 
     try {
-  await addDoc(collection(db, "orders"), order);
+      await addDoc(collection(db, "orders"), order);
 
-  try {
-    await fetch("/api/send-telegram", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(order),
-    });
-  } catch (telegramError) {
-    console.error("Telegram notification failed:", telegramError);
-  }
+      try {
+        await fetch("/api/send-telegram", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(order),
+        });
+      } catch (telegramError) {
+        console.error("Telegram notification failed:", telegramError);
+      }
+
       setLatestOrder({
         ...order,
         createdAt: new Date().toISOString(),
@@ -497,34 +512,99 @@ const totalOrderValue = dateFilteredOrders.reduce(
       alert("Could not update order status.");
     }
   }
+
   async function verifyPayment(orderId) {
-  const selectedOrder = orders.find((order) => order.id === orderId);
+    const selectedOrder = orders.find((order) => order.id === orderId);
 
-  if (!selectedOrder?.firestoreId) return;
+    if (!selectedOrder?.firestoreId) return;
 
-  try {
-    await updateDoc(doc(db, "orders", selectedOrder.firestoreId), {
-      paymentStatus: "Payment verified",
-    });
-  } catch (error) {
-    console.error("Error verifying payment:", error);
-    alert("Could not verify payment.");
+    try {
+      await updateDoc(doc(db, "orders", selectedOrder.firestoreId), {
+        paymentStatus: "Payment verified",
+      });
+    } catch (error) {
+      console.error("Error verifying payment:", error);
+      alert("Could not verify payment.");
+    }
   }
-}
-async function toggleItemAvailability(itemId) {
-  const currentAvailability = isItemAvailable(itemId);
-  const nextAvailability = !currentAvailability;
 
-  try {
-    await setDoc(doc(db, "itemAvailability", itemId), {
-      available: nextAvailability,
-      updatedAt: serverTimestamp(),
-    });
-  } catch (error) {
-    console.error("Error updating item availability:", error);
-    alert("Could not update item availability.");
+  async function toggleItemAvailability(itemId) {
+    const currentAvailability = isItemAvailable(itemId);
+    const nextAvailability = !currentAvailability;
+
+    try {
+      await setDoc(doc(db, "itemAvailability", itemId), {
+        available: nextAvailability,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error("Error updating item availability:", error);
+      alert("Could not update item availability.");
+    }
   }
-}
+
+  function downloadOrdersCsv() {
+    if (visibleOrders.length === 0) {
+      alert("No orders to export.");
+      return;
+    }
+
+    const headers = [
+      "Order ID",
+      "Time",
+      "Customer Name",
+      "Phone",
+      "Items",
+      "Total",
+      "Payment Status",
+      "Order Status",
+    ];
+
+    const rows = visibleOrders.map((order) => {
+      const itemsText = (order.items || [])
+        .map((item) => `${item.qty} x ${item.name}`)
+        .join(" | ");
+
+      return [
+        order.id || "",
+        order.time || "",
+        order.customer?.name || "",
+        order.customer?.phone || "",
+        itemsText,
+        order.total || 0,
+        order.paymentStatus || "",
+        order.status || "",
+      ];
+    });
+
+    const csvContent = [headers, ...rows]
+      .map((row) =>
+        row
+          .map((cell) => {
+            const safeCell = String(cell).replace(/"/g, '""');
+            return `"${safeCell}"`;
+          })
+          .join(",")
+      )
+      .join("\n");
+
+    const blob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    const today = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `penfry-orders-${adminDateFilter}-${adminFilter}-${today}.csv`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+  }
 
   async function clearOrders() {
     const confirmClear = window.confirm("Clear all orders?");
@@ -541,93 +621,97 @@ async function toggleItemAvailability(itemId) {
       alert("Could not clear orders.");
     }
   }
+
   function unlockAdmin() {
-  if (pinInput === ADMIN_PIN) {
-    sessionStorage.setItem("penfryAdminUnlocked", "true");
-    setIsAdminUnlocked(true);
-  } else {
-    alert("Wrong PIN");
+    if (pinInput === ADMIN_PIN) {
+      sessionStorage.setItem("penfryAdminUnlocked", "true");
+      setIsAdminUnlocked(true);
+    } else {
+      alert("Wrong PIN");
+    }
   }
-}
-function enableSound() {
-  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-  const oscillator = audioContext.createOscillator();
-  const gainNode = audioContext.createGain();
+  function enableSound() {
+    const audioContext = new (window.AudioContext ||
+      window.webkitAudioContext)();
 
-  oscillator.type = "sine";
-  oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
 
-  gainNode.gain.setValueAtTime(0.001, audioContext.currentTime);
-  gainNode.gain.exponentialRampToValueAtTime(
-    0.3,
-    audioContext.currentTime + 0.02
-  );
-  gainNode.gain.exponentialRampToValueAtTime(
-    0.001,
-    audioContext.currentTime + 0.25
-  );
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
 
-  oscillator.connect(gainNode);
-  gainNode.connect(audioContext.destination);
+    gainNode.gain.setValueAtTime(0.001, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(
+      0.3,
+      audioContext.currentTime + 0.02
+    );
+    gainNode.gain.exponentialRampToValueAtTime(
+      0.001,
+      audioContext.currentTime + 0.25
+    );
 
-  oscillator.start();
-  oscillator.stop(audioContext.currentTime + 0.26);
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
 
-  setSoundEnabled(true);
-}
-if (isAdminPage && !isAdminUnlocked) {
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.26);
+
+    setSoundEnabled(true);
+  }
+
+  if (isAdminPage && !isAdminUnlocked) {
+    return (
+      <div className="app">
+        <main className="page adminLoginPage">
+          <div className="adminLoginBox">
+            <h1>PENFRY</h1>
+            <p>Enter admin PIN to view live orders.</p>
+
+            <input
+              type="password"
+              inputMode="numeric"
+              placeholder="Enter PIN"
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value)}
+            />
+
+            <button className="primaryBtn" onClick={unlockAdmin}>
+              Unlock Admin
+            </button>
+
+            <button
+              className="secondaryBtn"
+              onClick={() => {
+                window.location.href = "/";
+              }}
+            >
+              Back to Menu
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
-      <main className="page adminLoginPage">
-        <div className="adminLoginBox">
-          <h1>PENFRY</h1>
-          <p>Enter admin PIN to view live orders.</p>
+      <header className="topbar">
+        <div className="brandWrap">
+          <img src={penfryLogo} alt="Penfry" className="brandLogo" />
+        </div>
 
-          <input
-            type="password"
-            inputMode="numeric"
-            placeholder="Enter PIN"
-            value={pinInput}
-            onChange={(e) => setPinInput(e.target.value)}
-          />
-
-          <button className="primaryBtn" onClick={unlockAdmin}>
-            Unlock Admin
-          </button>
-
+        {isAdminPage && (
           <button
-            className="secondaryBtn"
+            className="adminBtn"
             onClick={() => {
               window.location.href = "/";
             }}
           >
-            Back to Menu
+            Menu
           </button>
-        </div>
-      </main>
-    </div>
-  );
-}
-
-  return (
-    <div className="app">
-     <header className="topbar">
-  <div className="brandWrap">
-    <img src={penfryLogo} alt="Penfry" className="brandLogo" />
-  </div>
-
-  {isAdminPage && (
-    <button
-      className="adminBtn"
-      onClick={() => {
-        window.location.href = "/";
-      }}
-    >
-      Menu
-    </button>
-  )}
-</header>
+        )}
+      </header>
 
       {view === "menu" && (
         <main className="page">
@@ -635,7 +719,8 @@ if (isAdminPage && !isAdminUnlocked) {
             <p>Order from your seat</p>
             <h2>Chai, munchies & sweet cravings.</h2>
             <span>
-               Add your items, enter your name and contact number, then pay using UPI.
+              Add your items, enter your name and contact number, then pay using
+              UPI.
             </span>
           </section>
 
@@ -678,14 +763,17 @@ if (isAdminPage && !isAdminUnlocked) {
                       <span>{item.category}</span>
 
                       {!isItemAvailable(item.id) ? (
-  <button className="soldOutBtn" disabled>
-    Sold Out
-  </button>
-) : qty === 0 ? (
-  <button className="addBtn" onClick={() => addItem(item.id)}>
-    Add
-  </button>
-) : (
+                        <button className="soldOutBtn" disabled>
+                          Sold Out
+                        </button>
+                      ) : qty === 0 ? (
+                        <button
+                          className="addBtn"
+                          onClick={() => addItem(item.id)}
+                        >
+                          Add
+                        </button>
+                      ) : (
                         <div className="qtyBox">
                           <button onClick={() => removeItem(item.id)}>-</button>
                           <b>{qty}</b>
@@ -737,12 +825,12 @@ if (isAdminPage && !isAdminUnlocked) {
               <input
                 type="tel"
                 placeholder="Example: 9876543210"
-               value={customer.phone}
-               onChange={(e) =>
-                setCustomer({ ...customer, phone: e.target.value })
-                 }
-  />
-</label>
+                value={customer.phone}
+                onChange={(e) =>
+                  setCustomer({ ...customer, phone: e.target.value })
+                }
+              />
+            </label>
 
             <label>
               Special Instructions
@@ -805,8 +893,8 @@ if (isAdminPage && !isAdminUnlocked) {
           <section className="verifyBox">
             <h3>After payment</h3>
             <p>
-              Enter your UPI transaction/reference ID. Pantry staff will verify it
-              manually.
+              Enter your UPI transaction/reference ID. Pantry staff will verify
+              it manually.
             </p>
 
             <input
@@ -831,16 +919,14 @@ if (isAdminPage && !isAdminUnlocked) {
       {view === "admin" && (
         <main className="page">
           {newOrderAlert && (
-          <div className="newOrderAlert">
-          🔔 New order received
-          </div>
-            )}
+            <div className="newOrderAlert">🔔 New order received</div>
+          )}
 
-    {isAdminPage && isAdminUnlocked && !soundEnabled && (
-      <button className="enableSoundBtn" onClick={enableSound}>
-        🔔 Enable Order Sound
-      </button>
-    )}
+          {isAdminPage && isAdminUnlocked && !soundEnabled && (
+            <button className="enableSoundBtn" onClick={enableSound}>
+              🔔 Enable Order Sound
+            </button>
+          )}
 
           <div className="adminHeader">
             <div>
@@ -848,97 +934,113 @@ if (isAdminPage && !isAdminUnlocked) {
               <h2>Orders</h2>
             </div>
 
-            <button className="clearBtn" onClick={clearOrders}>
-              Clear
+            <div className="adminHeaderActions">
+              <button className="exportCsvBtn" onClick={downloadOrdersCsv}>
+                Export CSV
+              </button>
+
+              <button className="clearBtn" onClick={clearOrders}>
+                Clear
+              </button>
+            </div>
+          </div>
+
+          <div className="adminDateTabs">
+            <button
+              className={adminDateFilter === "today" ? "activeAdminFilter" : ""}
+              onClick={() => setAdminDateFilter("today")}
+            >
+              Today
+            </button>
+
+            <button
+              className={adminDateFilter === "all" ? "activeAdminFilter" : ""}
+              onClick={() => setAdminDateFilter("all")}
+            >
+              All Orders
             </button>
           </div>
-          <div className="adminDateTabs">
-  <button
-    className={adminDateFilter === "today" ? "activeAdminFilter" : ""}
-    onClick={() => setAdminDateFilter("today")}
-  >
-    Today
-  </button>
 
-  <button
-    className={adminDateFilter === "all" ? "activeAdminFilter" : ""}
-    onClick={() => setAdminDateFilter("all")}
-  >
-    All Orders
-  </button>
-</div>
           <div className="adminFilterTabs">
-  <button
-    className={adminFilter === "active" ? "activeAdminFilter" : ""}
-    onClick={() => setAdminFilter("active")}
-  >
-    Active ({activeOrders.length})
-  </button>
+            <button
+              className={adminFilter === "active" ? "activeAdminFilter" : ""}
+              onClick={() => setAdminFilter("active")}
+            >
+              Active ({activeOrders.length})
+            </button>
 
-  <button
-    className={adminFilter === "completed" ? "activeAdminFilter" : ""}
-    onClick={() => setAdminFilter("completed")}
-  >
-    Completed ({completedOrders.length})
-  </button>
-</div>
-<div className="adminStatsGrid">
-  <div className="adminStatCard">
-    <span>Active</span>
-    <strong>{activeOrders.length}</strong>
-  </div>
+            <button
+              className={adminFilter === "completed" ? "activeAdminFilter" : ""}
+              onClick={() => setAdminFilter("completed")}
+            >
+              Completed ({completedOrders.length})
+            </button>
+          </div>
 
-  <div className="adminStatCard">
-    <span>Completed</span>
-    <strong>{completedOrders.length}</strong>
-  </div>
+          <div className="adminStatsGrid">
+            <div className="adminStatCard">
+              <span>Active</span>
+              <strong>{activeOrders.length}</strong>
+            </div>
 
-  <div className="adminStatCard">
-    <span>Verified Sales</span>
-    <strong>{formatPrice(verifiedSalesTotal)}</strong>
-  </div>
+            <div className="adminStatCard">
+              <span>Completed</span>
+              <strong>{completedOrders.length}</strong>
+            </div>
 
-  <div className="adminStatCard">
-    <span>Total Value</span>
-    <strong>{formatPrice(totalOrderValue)}</strong>
-  </div>
-</div>
-<div className="availabilityPanel">
-  <h3>Item Availability</h3>
-  <p>Mark items as sold out or available.</p>
+            <div className="adminStatCard">
+              <span>Verified Sales</span>
+              <strong>{formatPrice(verifiedSalesTotal)}</strong>
+            </div>
 
-  <div className="availabilityList">
-    {menuItems.map((item) => (
-      <div className="availabilityItem" key={item.id}>
-        <div>
-          <strong>{item.name}</strong>
-          <span>
-            {item.category} • {formatPrice(item.price)}
-          </span>
-        </div>
+            <div className="adminStatCard">
+              <span>Total Value</span>
+              <strong>{formatPrice(totalOrderValue)}</strong>
+            </div>
+          </div>
 
-        <button
-          className={isItemAvailable(item.id) ? "availableBtn" : "soldOutToggleBtn"}
-          onClick={() => toggleItemAvailability(item.id)}
-        >
-          {isItemAvailable(item.id) ? "Available" : "Sold Out"}
-        </button>
-      </div>
-    ))}
-  </div>
-</div>
+          <div className="availabilityPanel">
+            <h3>Item Availability</h3>
+            <p>Mark items as sold out or available.</p>
+
+            <div className="availabilityList">
+              {menuItems.map((item) => (
+                <div className="availabilityItem" key={item.id}>
+                  <div>
+                    <strong>{item.name}</strong>
+                    <span>
+                      {item.category} • {formatPrice(item.price)}
+                    </span>
+                  </div>
+
+                  <button
+                    className={
+                      isItemAvailable(item.id)
+                        ? "availableBtn"
+                        : "soldOutToggleBtn"
+                    }
+                    onClick={() => toggleItemAvailability(item.id)}
+                  >
+                    {isItemAvailable(item.id) ? "Available" : "Sold Out"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {visibleOrders.length === 0 ? (
             <div className="emptyBox">
-  <h3>
-    {adminFilter === "active" ? "No active orders" : "No completed orders"}
-  </h3>
-  <p>
-    {adminFilter === "active"
-      ? "New orders will appear here after customers place them."
-      : "Delivered and cancelled orders will appear here."}
-  </p>
-</div>
+              <h3>
+                {adminFilter === "active"
+                  ? "No active orders"
+                  : "No completed orders"}
+              </h3>
+              <p>
+                {adminFilter === "active"
+                  ? "New orders will appear here after customers place them."
+                  : "Delivered and cancelled orders will appear here."}
+              </p>
+            </div>
           ) : (
             <div className="ordersList">
               {visibleOrders.map((order) => (
@@ -948,7 +1050,8 @@ if (isAdminPage && !isAdminUnlocked) {
                       <small>{order.time}</small>
                       <h3>{order.id}</h3>
                       <p>
-                        {order.customer.name} • {order.customer.phone || "No contact number"}
+                        {order.customer.name} •{" "}
+                        {order.customer.phone || "No contact number"}
                       </p>
                     </div>
 
@@ -983,13 +1086,14 @@ if (isAdminPage && !isAdminUnlocked) {
 
                     <strong>{formatPrice(order.total)}</strong>
                   </div>
+
                   {order.paymentStatus !== "Payment verified" && (
-                  <button
-                  className="verifyPaymentBtn"
-                  onClick={() => verifyPayment(order.id)}
-                  >
-                  Payment Verified
-                  </button>
+                    <button
+                      className="verifyPaymentBtn"
+                      onClick={() => verifyPayment(order.id)}
+                    >
+                      Payment Verified
+                    </button>
                   )}
 
                   <div className="statusButtons">
@@ -1004,15 +1108,17 @@ if (isAdminPage && !isAdminUnlocked) {
                     </button>
                     <button
                       className="cancelOrderBtn"
-                    onClick={() => {
-                  const confirmCancel = window.confirm("Cancel this order?");
-                  if (confirmCancel) {
-                    updateStatus(order.id, "Cancelled");
-                  }
-                  }}
+                      onClick={() => {
+                        const confirmCancel = window.confirm(
+                          "Cancel this order?"
+                        );
+                        if (confirmCancel) {
+                          updateStatus(order.id, "Cancelled");
+                        }
+                      }}
                     >
-                    Cancel
-                  </button>
+                      Cancel
+                    </button>
                   </div>
                 </div>
               ))}
