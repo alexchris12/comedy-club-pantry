@@ -1607,11 +1607,11 @@ await Promise.all(stockUpdatePromises);
                 </div>
                 <strong>{formatPrice(trackedOrder.total)}</strong>
               </div>
-              {order.paymentProof && (
+              {trackedOrder.paymentProof && (
   <div className="adminPaymentProofBox">
-    <small>Payment Screenshot</small>
-    <a href={order.paymentProof} target="_blank" rel="noreferrer">
-      <img src={order.paymentProof} alt="Payment proof" />
+    <small>Payment Screenshot Uploaded</small>
+    <a href={trackedOrder.paymentProof} target="_blank" rel="noreferrer">
+      <img src={trackedOrder.paymentProof} alt="Payment proof" />
     </a>
   </div>
 )}
@@ -1966,7 +1966,12 @@ await Promise.all(stockUpdatePromises);
                       <strong>{formatPrice(order.total)}</strong>
                     </div>
                     {order.paymentProof && (
-  <p className="kitchenNote">Payment screenshot uploaded.</p>
+  <div className="adminPaymentProofBox">
+    <small>Payment Screenshot</small>
+    <a href={order.paymentProof} target="_blank" rel="noreferrer">
+      <img src={order.paymentProof} alt="Payment proof" />
+    </a>
+  </div>
 )}
 
                     <div className="statusButtons">
@@ -2057,6 +2062,15 @@ await Promise.all(stockUpdatePromises);
 
                       <strong>{formatPrice(order.total)}</strong>
                     </div>
+
+                    {order.paymentProof && (
+                      <div className="adminPaymentProofBox">
+                        <small>Payment Screenshot</small>
+                        <a href={order.paymentProof} target="_blank" rel="noreferrer">
+                          <img src={order.paymentProof} alt="Payment proof" />
+                        </a>
+                      </div>
+                    )}
 
                     {order.paymentStatus !== "Payment verified" && (
                       <button
