@@ -292,16 +292,38 @@ const [isAdminUnlocked, setIsAdminUnlocked] = useState(
 
   const total = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
   const itemCount = cartItems.reduce((sum, item) => sum + item.qty, 0);
-  const activeOrders = orders.filter((order) =>
+  const todayDate = new Date().toLocaleDateString("en-IN");
+
+const getOrderDate = (order) => {
+  if (order.createdAt?.toDate) {
+    return order.createdAt.toDate().toLocaleDateString("en-IN");
+  }
+
+  if (order.createdAt) {
+    return new Date(order.createdAt).toLocaleDateString("en-IN");
+  }
+
+  return todayDate;
+};
+
+const [adminDateFilter, setAdminDateFilter] = useState("today");
+
+const dateFilteredOrders =
+  adminDateFilter === "today"
+    ? orders.filter((order) => getOrderDate(order) === todayDate)
+    : orders;
+
+const activeOrders = dateFilteredOrders.filter((order) =>
   ["New", "Preparing", "Ready"].includes(order.status)
 );
 
-const completedOrders = orders.filter((order) =>
+const completedOrders = dateFilteredOrders.filter((order) =>
   ["Delivered", "Cancelled"].includes(order.status)
 );
 
 const visibleOrders = adminFilter === "active" ? activeOrders : completedOrders;
-const verifiedOrders = orders.filter(
+
+const verifiedOrders = dateFilteredOrders.filter(
   (order) => order.paymentStatus === "Payment verified"
 );
 
@@ -310,7 +332,7 @@ const verifiedSalesTotal = verifiedOrders.reduce(
   0
 );
 
-const totalOrderValue = orders.reduce(
+const totalOrderValue = dateFilteredOrders.reduce(
   (sum, order) => sum + Number(order.total || 0),
   0
 );
@@ -782,6 +804,21 @@ if (isAdminPage && !isAdminUnlocked) {
               Clear
             </button>
           </div>
+          <div className="adminDateTabs">
+  <button
+    className={adminDateFilter === "today" ? "activeAdminFilter" : ""}
+    onClick={() => setAdminDateFilter("today")}
+  >
+    Today
+  </button>
+
+  <button
+    className={adminDateFilter === "all" ? "activeAdminFilter" : ""}
+    onClick={() => setAdminDateFilter("all")}
+  >
+    All Orders
+  </button>
+</div>
           <div className="adminFilterTabs">
   <button
     className={adminFilter === "active" ? "activeAdminFilter" : ""}
