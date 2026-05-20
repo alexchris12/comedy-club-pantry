@@ -1065,6 +1065,76 @@ await Promise.all(stockUpdatePromises);
 
     URL.revokeObjectURL(url);
   }
+  function downloadDailyReportCsv() {
+  if (dateFilteredOrders.length === 0) {
+    alert("No orders found for this report.");
+    return;
+  }
+
+  const feedbackOrders = dateFilteredOrders.filter(
+    (order) => order.feedback?.rating
+  );
+
+  const averageRating =
+    feedbackOrders.length > 0
+      ? (
+          feedbackOrders.reduce(
+            (sum, order) => sum + Number(order.feedback.rating || 0),
+            0
+          ) / feedbackOrders.length
+        ).toFixed(1)
+      : "No feedback";
+
+  const paymentPendingCount = dateFilteredOrders.filter(
+    (order) => order.paymentStatus !== "Payment verified"
+  ).length;
+
+  const reportRows = [
+    ["Report Range", adminDateFilter],
+    ["Total Orders", totalOrdersCount],
+    ["Active Orders", activeOrders.length],
+    ["Completed Orders", completedOrders.length],
+    ["Cancelled Orders", cancelledOrdersCount],
+    ["Verified Revenue", verifiedSalesTotal],
+    ["Total Order Value", totalOrderValue],
+    ["Average Order Value", averageOrderValue],
+    ["Top Selling Item", topSellingItem ? topSellingItem.name : "None"],
+    ["Top Item Quantity", topSellingItem ? topSellingItem.qty : 0],
+    ["Peak Order Hour", peakOrderHour ? peakOrderHour[0] : "None"],
+    ["Peak Hour Orders", peakOrderHour ? peakOrderHour[1] : 0],
+    ["Payment Pending", paymentPendingCount],
+    ["Feedback Count", feedbackOrders.length],
+    ["Average Rating", averageRating],
+  ];
+
+  const csvContent = reportRows
+    .map((row) =>
+      row
+        .map((cell) => {
+          const safeCell = String(cell).replace(/"/g, '""');
+          return `"${safeCell}"`;
+        })
+        .join(",")
+    )
+    .join("\n");
+
+  const blob = new Blob([csvContent], {
+    type: "text/csv;charset=utf-8;",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  const today = new Date().toISOString().slice(0, 10);
+  link.href = url;
+  link.download = `penfry-daily-report-${adminDateFilter}-${today}.csv`;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
+}
 
   async function clearCompletedOrders() {
     const completedOrdersToClear = completedOrders.filter(
@@ -1639,6 +1709,9 @@ await Promise.all(stockUpdatePromises);
               <button className="exportCsvBtn" onClick={downloadOrdersCsv}>
                 Export CSV
               </button>
+              <button className="exportCsvBtn" onClick={downloadDailyReportCsv}>
+  Daily Report
+</button>
 
               <button className="clearBtn" onClick={clearCompletedOrders}>
                 Clear Completed
