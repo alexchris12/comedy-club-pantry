@@ -133,9 +133,10 @@ const DEFAULT_MENU_ITEMS = [
   },
 ];
 
-const ORDER_STEPS = ["New", "Preparing", "Ready", "Delivered"];
+const ORDER_STEPS = ["Payment Review", "New", "Preparing", "Ready", "Delivered"];
 const ORDER_STATUS_MESSAGES = {
-  New: "Your order has been received.",
+  "Payment Review": "Payment submitted. Pantry will confirm your order after verification.",
+  New: "Your payment is verified and your order has been received.",
   Preparing: "The pantry is preparing your order.",
   Ready: "Your order is ready for pickup.",
   Delivered: "Your order has been completed.",
@@ -287,6 +288,7 @@ export default function App() {
   const [itemAvailability, setItemAvailability] = useState({});
   const [itemStock, setItemStock] = useState({});
   const [latestOrder, setLatestOrder] = useState(null);
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [trackOrderId, setTrackOrderId] = useState(initialOrderId.toUpperCase());
   const [trackSearchInput, setTrackSearchInput] = useState(
     initialOrderId.toUpperCase()
@@ -522,7 +524,7 @@ const dateFilteredOrders = orders.filter((order) => {
 });
 
   const activeOrders = dateFilteredOrders.filter((order) =>
-    ["New", "Preparing", "Ready"].includes(order.status)
+    ["Payment Review", "New", "Preparing", "Ready"].includes(order.status)
   );
 
   const completedOrders = dateFilteredOrders.filter((order) =>
@@ -718,38 +720,73 @@ function isItemAvailable(itemId) {
     const orderId = createOrderId();
     const upiLink = createUpiLink(total, orderId);
 
-    const order = {
+    const paymentDraftOrder = {
       id: orderId,
       items: cartItems,
       total,
-      customer,
-      status: "New",
-      paymentStatus: "Awaiting payment",
+      customer: {
+        ...customer,
+        name: customer.name.trim(),
+        phone: customer.phone.trim(),
+        note: customer.note.trim(),
+      },
+      status: "Payment Review",
+      paymentStatus: "Payment not submitted",
       upiLink,
       qrUrl: createQrUrl(upiLink),
       time: new Date().toLocaleTimeString("en-IN", {
         hour: "2-digit",
         minute: "2-digit",
       }),
+      createdAt: new Date().toISOString(),
+    };
+
+    setLatestOrder(paymentDraftOrder);
+    setPaymentProof("");
+    setView("payment");
+  }
+
+  async function markPaid() {
+    if (!latestOrder) return;
+
+    if (!customer.transactionId.trim() && !paymentProof) {
+      alert("Please enter UPI reference ID or upload a payment screenshot.");
+      return;
+    }
+
+    setIsSubmittingPayment(true);
+
+    const orderToSave = {
+      ...latestOrder,
+      customer: {
+        ...latestOrder.customer,
+        transactionId: customer.transactionId.trim(),
+      },
+      status: "Payment Review",
+      paymentStatus: "Pending payment verification",
+      paymentProof: paymentProof || "",
+      paymentProofUploadedAt: paymentProof ? new Date().toISOString() : "",
       createdAt: serverTimestamp(),
+      submittedAt: new Date().toISOString(),
     };
 
     try {
-      await addDoc(collection(db, "orders"), order);
-      const stockUpdatePromises = cartItems
-  .filter((item) => hasStockLimit(item.id))
-  .map((item) =>
-    setDoc(
-      doc(db, "itemStock", item.id),
-      {
-        quantity: Math.max(0, getItemStock(item.id) - item.qty),
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    )
-  );
+      const savedOrder = await addDoc(collection(db, "orders"), orderToSave);
 
-await Promise.all(stockUpdatePromises);
+      const stockUpdatePromises = cartItems
+        .filter((item) => hasStockLimit(item.id))
+        .map((item) =>
+          setDoc(
+            doc(db, "itemStock", item.id),
+            {
+              quantity: Math.max(0, getItemStock(item.id) - item.qty),
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          )
+        );
+
+      await Promise.all(stockUpdatePromises);
 
       try {
         await fetch("/api/send-telegram", {
@@ -757,74 +794,29 @@ await Promise.all(stockUpdatePromises);
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(order),
+          body: JSON.stringify(orderToSave),
         });
       } catch (telegramError) {
         console.error("Telegram notification failed:", telegramError);
       }
 
       setLatestOrder({
-        ...order,
+        ...orderToSave,
+        firestoreId: savedOrder.id,
         createdAt: new Date().toISOString(),
       });
-      setTrackOrderId(orderId);
-      setTrackSearchInput(orderId);
-
+      setTrackOrderId(latestOrder.id);
+      setTrackSearchInput(latestOrder.id);
       setCart({});
       setPaymentProof("");
-      setView("payment");
+
+      alert("Payment submitted. Your order will be confirmed after admin verification.");
+      openTracking(latestOrder.id);
     } catch (error) {
-      console.error("Error placing order:", error);
-      alert("Could not place order. Please check Firebase setup.");
-    }
-  }
-
-  async function markPaid() {
-    if (!latestOrder) return;
-
-    const selectedOrder = orders.find((order) => order.id === latestOrder.id);
-
-    if (!selectedOrder?.firestoreId) {
-      alert(
-        "Order saved, but payment status could not update. Please tell pantry your order ID."
-      );
-      return;
-    }
-
-    const updatedPaymentStatus = customer.transactionId
-      ? "Paid - verify UPI ref"
-      : "Paid - verify manually";
-
-    try {
-      await updateDoc(doc(db, "orders", selectedOrder.firestoreId), {
-        customer: {
-          ...selectedOrder.customer,
-          transactionId: customer.transactionId,
-        },
-        paymentStatus: updatedPaymentStatus,
-        paymentProof: paymentProof || selectedOrder.paymentProof || "",
-        paymentProofUploadedAt: paymentProof
-          ? new Date().toISOString()
-          : selectedOrder.paymentProofUploadedAt || "",
-      });
-
-      setLatestOrder({
-        ...latestOrder,
-        customer: {
-          ...latestOrder.customer,
-          transactionId: customer.transactionId,
-        },
-        paymentStatus: updatedPaymentStatus,
-        paymentProof: paymentProof || latestOrder.paymentProof || "",
-        paymentProofUploadedAt: paymentProof
-          ? new Date().toISOString()
-          : latestOrder.paymentProofUploadedAt || "",
-      });
-
-      alert("Payment marked. Pantry will verify manually.");
-    } catch (error) {
-      console.error("Error updating payment:", error);
-      alert("Could not update payment status.");
+      console.error("Error submitting payment/order:", error);
+      alert("Could not submit payment for review. Please try again.");
+    } finally {
+      setIsSubmittingPayment(false);
     }
   }
 
@@ -852,6 +844,14 @@ await Promise.all(stockUpdatePromises);
 
     if (!selectedOrder?.firestoreId) return;
 
+    if (
+      selectedOrder.paymentStatus !== "Payment verified" &&
+      !["Cancelled"].includes(newStatus)
+    ) {
+      alert("Please verify payment before moving this order forward.");
+      return;
+    }
+
     try {
       await updateDoc(doc(db, "orders", selectedOrder.firestoreId), {
         status: newStatus,
@@ -870,6 +870,8 @@ await Promise.all(stockUpdatePromises);
     try {
       await updateDoc(doc(db, "orders", selectedOrder.firestoreId), {
         paymentStatus: "Payment verified",
+        paymentStatusUpdatedAt: new Date().toISOString(),
+        status: "New",
       });
     } catch (error) {
       console.error("Error verifying payment:", error);
@@ -1492,8 +1494,7 @@ await Promise.all(stockUpdatePromises);
             <p>Order from your seat</p>
             <h2>Chai, munchies & sweet cravings.</h2>
             <span>
-              Add your items, enter your name and contact number, then pay using
-              UPI.
+              Add your items, enter your details, pay with UPI, then submit payment proof for confirmation.
             </span>
           </section>
 
@@ -1628,7 +1629,7 @@ await Promise.all(stockUpdatePromises);
           </div>
 
           <button className="primaryBtn" onClick={placeOrder}>
-            Place Order & Pay
+            Pay Now
           </button>
 
           <button className="secondaryBtn" onClick={() => setView("menu")}>
@@ -1641,7 +1642,10 @@ await Promise.all(stockUpdatePromises);
         <main className="page">
           <section className="successBox">
             <div className="check">✓</div>
-            <h2>Order Placed</h2>
+            <h2>Payment Required</h2>
+            <p>
+              Your order is not confirmed yet. Pay first, then submit proof.
+            </p>
             <p>
               {latestOrder.id} • {latestOrder.customer.phone}
             </p>
@@ -1685,7 +1689,7 @@ await Promise.all(stockUpdatePromises);
 
             <div className="paymentProofUpload">
               <label>
-                Payment screenshot <span>optional</span>
+                Payment screenshot <span>recommended</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -1705,8 +1709,8 @@ await Promise.all(stockUpdatePromises);
               )}
             </div>
 
-            <button className="primaryBtn" onClick={markPaid}>
-              I Have Paid
+            <button className="primaryBtn" onClick={markPaid} disabled={isSubmittingPayment}>
+              {isSubmittingPayment ? "Submitting..." : "Submit Payment for Review"}
             </button>
 
             <button
@@ -1784,7 +1788,9 @@ await Promise.all(stockUpdatePromises);
 
 <div className={`trackingStatusHero ${trackedOrder.status}`}>
   <span>
-    {trackedOrder.status === "Ready"
+    {trackedOrder.status === "Payment Review"
+      ? "🧾"
+      : trackedOrder.status === "Ready"
       ? "✅"
       : trackedOrder.status === "Delivered"
       ? "🎉"
@@ -2393,7 +2399,7 @@ await Promise.all(stockUpdatePromises);
                   {adminSearch
                     ? "No orders match your search."
                     : adminFilter === "active"
-                    ? "New orders will appear here after customers place them."
+                    ? "Orders will appear here after customers submit payment proof."
                     : "Delivered and cancelled orders will appear here."}
                 </p>
               </div>

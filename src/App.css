@@ -2557,3 +2557,67 @@ button {
 .kitchenOrderCard .paymentStatus strong {
   color: #ffffff;
 }
+/* === Manual UPI Payment Review Flow === */
+.status.Payment,
+.status.PaymentReview,
+.status.paymentReview {
+  background: #fff3cd;
+  color: #8a5a00;
+  border: 1px solid #ffdf7e;
+}
+
+.paymentReviewNotice,
+.paymentPendingNotice {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #fff3cd;
+  color: #6b4300;
+  border: 1px solid #ffdf7e;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.paymentReviewOrderCard {
+  border: 2px solid #ffdf7e;
+  background: #fffaf0;
+}
+
+.paymentLockedBtn,
+.statusButtons button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+.submitPaymentProofBtn {
+  width: 100%;
+  border: 0;
+  border-radius: 18px;
+  padding: 15px 16px;
+  background: #f15a00;
+  color: #fff7ed;
+  font-weight: 950;
+  font-size: 15px;
+  box-shadow: 0 12px 30px rgba(241, 90, 0, 0.22);
+}
+
+.paymentProofRequiredText {
+  margin: 8px 0 14px;
+  color: rgba(74, 20, 9, 0.68);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.paymentActionButtons .rejectPaymentBtn {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.paymentActionButtons .paymentIssueBtn,
+.paymentActionButtons .refundBtn,
+.paymentActionButtons .duplicatePaymentBtn {
+  color: #fff7ed;
+}
