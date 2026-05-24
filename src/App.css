@@ -2621,3 +2621,44 @@ button {
 .paymentActionButtons .duplicatePaymentBtn {
   color: #fff7ed;
 }
+
+
+/* === Payment Started safety flow === */
+.status.Payment {
+  background: #fff3cd;
+  color: #8a5a00;
+  border: 1px solid #ffdf7e;
+}
+
+.paymentStartedOrderCard {
+  border: 2px solid #ffdf7e !important;
+  background: #fffaf0 !important;
+}
+
+.trackingStatusHero.Payment {
+  background: #fff3cd;
+}
+
+.paymentPendingNotice {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #fff3cd;
+  color: #6b4300;
+  border: 1px solid #ffdf7e;
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.primaryBtn:disabled,
+.submitPaymentProofBtn:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
+@media (min-width: 560px) {
+  .trackSteps {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

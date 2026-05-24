@@ -133,9 +133,19 @@ const DEFAULT_MENU_ITEMS = [
   },
 ];
 
-const ORDER_STEPS = ["Payment Review", "New", "Preparing", "Ready", "Delivered"];
+const ORDER_STEPS = [
+  "Payment Started",
+  "Payment Review",
+  "New",
+  "Preparing",
+  "Ready",
+  "Delivered",
+];
 const ORDER_STATUS_MESSAGES = {
-  "Payment Review": "Payment submitted. Pantry will confirm your order after verification.",
+  "Payment Started":
+    "Your order details are saved. Please complete payment and submit the reference ID or screenshot.",
+  "Payment Review":
+    "Payment submitted. Pantry will confirm your order after verification.",
   New: "Your payment is verified and your order has been received.",
   Preparing: "The pantry is preparing your order.",
   Ready: "Your order is ready for pickup.",
@@ -524,7 +534,17 @@ const dateFilteredOrders = orders.filter((order) => {
 });
 
   const activeOrders = dateFilteredOrders.filter((order) =>
-    ["Payment Review", "New", "Preparing", "Ready"].includes(order.status)
+    ["Payment Started", "Payment Review", "New", "Preparing", "Ready"].includes(
+      order.status
+    )
+  );
+
+  const paymentStartedOrders = dateFilteredOrders.filter(
+    (order) => order.status === "Payment Started"
+  );
+
+  const paymentReviewOrders = dateFilteredOrders.filter(
+    (order) => order.status === "Payment Review"
   );
 
   const completedOrders = dateFilteredOrders.filter((order) =>
@@ -720,7 +740,7 @@ function isItemAvailable(itemId) {
     const orderId = createOrderId();
     const upiLink = createUpiLink(total, orderId);
 
-    const paymentDraftOrder = {
+    const paymentStartedOrder = {
       id: orderId,
       items: cartItems,
       total,
@@ -729,51 +749,112 @@ function isItemAvailable(itemId) {
         name: customer.name.trim(),
         phone: customer.phone.trim(),
         note: customer.note.trim(),
+        transactionId: "",
       },
-      status: "Payment Review",
-      paymentStatus: "Payment not submitted",
+      status: "Payment Started",
+      paymentStatus: "Awaiting payment proof",
       upiLink,
       qrUrl: createQrUrl(upiLink),
+      paymentProof: "",
+      paymentProofUploadedAt: "",
       time: new Date().toLocaleTimeString("en-IN", {
         hour: "2-digit",
         minute: "2-digit",
       }),
-      createdAt: new Date().toISOString(),
+      createdAt: serverTimestamp(),
+      paymentStartedAt: new Date().toISOString(),
     };
 
-    setLatestOrder(paymentDraftOrder);
-    setPaymentProof("");
-    setView("payment");
+    try {
+      const savedOrder = await addDoc(collection(db, "orders"), paymentStartedOrder);
+
+      const localOrder = {
+        ...paymentStartedOrder,
+        firestoreId: savedOrder.id,
+        createdAt: new Date().toISOString(),
+      };
+
+      setLatestOrder(localOrder);
+      setTrackOrderId(orderId);
+      setTrackSearchInput(orderId);
+      setPaymentProof("");
+      setView("payment");
+
+      try {
+        await fetch("/api/send-telegram", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ...localOrder,
+            alertType: "payment_started",
+          }),
+        });
+      } catch (telegramError) {
+        console.error("Telegram notification failed:", telegramError);
+      }
+    } catch (error) {
+      console.error("Error starting payment/order:", error);
+      alert("Could not start payment. Please check Firebase setup.");
+    }
   }
 
   async function markPaid() {
     if (!latestOrder) return;
 
-    if (!customer.transactionId.trim() && !paymentProof) {
-      alert("Please enter UPI reference ID or upload a payment screenshot.");
+    const selectedOrder =
+      latestOrder.firestoreId
+        ? latestOrder
+        : orders.find((order) => order.id === latestOrder.id);
+
+    if (!selectedOrder?.firestoreId) {
+      alert(
+        "Order saved locally, but payment status could not update. Please tell pantry your order ID."
+      );
       return;
+    }
+
+    const hasTransactionId = customer.transactionId.trim().length > 0;
+    const hasPaymentProof = Boolean(paymentProof);
+
+    if (!hasTransactionId && !hasPaymentProof) {
+      const confirmWithoutProof = window.confirm(
+        "You have not added a UPI reference ID or screenshot. Submit anyway? Pantry will verify this manually."
+      );
+
+      if (!confirmWithoutProof) return;
     }
 
     setIsSubmittingPayment(true);
 
-    const orderToSave = {
-      ...latestOrder,
-      customer: {
-        ...latestOrder.customer,
-        transactionId: customer.transactionId.trim(),
-      },
-      status: "Payment Review",
-      paymentStatus: "Pending payment verification",
-      paymentProof: paymentProof || "",
-      paymentProofUploadedAt: paymentProof ? new Date().toISOString() : "",
-      createdAt: serverTimestamp(),
-      submittedAt: new Date().toISOString(),
-    };
+    const updatedPaymentStatus =
+      hasTransactionId || hasPaymentProof
+        ? "Pending payment verification"
+        : "Paid - proof not submitted";
 
     try {
-      const savedOrder = await addDoc(collection(db, "orders"), orderToSave);
+      await updateDoc(doc(db, "orders", selectedOrder.firestoreId), {
+        customer: {
+          ...selectedOrder.customer,
+          transactionId: customer.transactionId.trim(),
+        },
+        status: "Payment Review",
+        paymentStatus: updatedPaymentStatus,
+        paymentProof: paymentProof || selectedOrder.paymentProof || "",
+        paymentProofUploadedAt: paymentProof
+          ? new Date().toISOString()
+          : selectedOrder.paymentProofUploadedAt || "",
+        submittedAt: new Date().toISOString(),
+        paymentStatusUpdatedAt: new Date().toISOString(),
+      });
 
-      const stockUpdatePromises = cartItems
+      const stockSourceItems =
+        latestOrder.items && latestOrder.items.length > 0
+          ? latestOrder.items
+          : cartItems;
+
+      const stockUpdatePromises = stockSourceItems
         .filter((item) => hasStockLimit(item.id))
         .map((item) =>
           setDoc(
@@ -788,23 +869,37 @@ function isItemAvailable(itemId) {
 
       await Promise.all(stockUpdatePromises);
 
+      const updatedOrder = {
+        ...latestOrder,
+        firestoreId: selectedOrder.firestoreId,
+        customer: {
+          ...latestOrder.customer,
+          transactionId: customer.transactionId.trim(),
+        },
+        status: "Payment Review",
+        paymentStatus: updatedPaymentStatus,
+        paymentProof: paymentProof || latestOrder.paymentProof || "",
+        paymentProofUploadedAt: paymentProof
+          ? new Date().toISOString()
+          : latestOrder.paymentProofUploadedAt || "",
+      };
+
       try {
         await fetch("/api/send-telegram", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(orderToSave),
+          body: JSON.stringify({
+            ...updatedOrder,
+            alertType: "payment_review",
+          }),
         });
       } catch (telegramError) {
         console.error("Telegram notification failed:", telegramError);
       }
 
-      setLatestOrder({
-        ...orderToSave,
-        firestoreId: savedOrder.id,
-        createdAt: new Date().toISOString(),
-      });
+      setLatestOrder(updatedOrder);
       setTrackOrderId(latestOrder.id);
       setTrackSearchInput(latestOrder.id);
       setCart({});
@@ -813,8 +908,8 @@ function isItemAvailable(itemId) {
       alert("Payment submitted. Your order will be confirmed after admin verification.");
       openTracking(latestOrder.id);
     } catch (error) {
-      console.error("Error submitting payment/order:", error);
-      alert("Could not submit payment for review. Please try again.");
+      console.error("Error updating payment:", error);
+      alert("Could not update payment status.");
     } finally {
       setIsSubmittingPayment(false);
     }
@@ -1494,7 +1589,8 @@ function isItemAvailable(itemId) {
             <p>Order from your seat</p>
             <h2>Chai, munchies & sweet cravings.</h2>
             <span>
-              Add your items, enter your details, pay with UPI, then submit payment proof for confirmation.
+              Add your items, enter your details and continue to UPI. Your
+              order details are saved before payment.
             </span>
           </section>
 
@@ -1629,7 +1725,7 @@ function isItemAvailable(itemId) {
           </div>
 
           <button className="primaryBtn" onClick={placeOrder}>
-            Pay Now
+            Place Order & Pay
           </button>
 
           <button className="secondaryBtn" onClick={() => setView("menu")}>
@@ -1642,9 +1738,9 @@ function isItemAvailable(itemId) {
         <main className="page">
           <section className="successBox">
             <div className="check">✓</div>
-            <h2>Payment Required</h2>
+            <h2>Order Saved</h2>
             <p>
-              Your order is not confirmed yet. Pay first, then submit proof.
+              Your details are saved. Complete UPI payment to confirm this order.
             </p>
             <p>
               {latestOrder.id} • {latestOrder.customer.phone}
@@ -1675,8 +1771,9 @@ function isItemAvailable(itemId) {
           <section className="verifyBox">
             <h3>After payment</h3>
             <p>
-              Enter your UPI transaction/reference ID. Pantry staff will verify
-              it manually.
+              Enter your UPI transaction/reference ID or upload a screenshot.
+              If you already paid and do not have proof, you can still submit
+              for manual review.
             </p>
 
             <input
@@ -1709,8 +1806,12 @@ function isItemAvailable(itemId) {
               )}
             </div>
 
-            <button className="primaryBtn" onClick={markPaid} disabled={isSubmittingPayment}>
-              {isSubmittingPayment ? "Submitting..." : "Submit Payment for Review"}
+            <button
+              className="primaryBtn"
+              onClick={markPaid}
+              disabled={isSubmittingPayment}
+            >
+              {isSubmittingPayment ? "Submitting..." : "I Have Paid / Submit for Review"}
             </button>
 
             <button
@@ -1788,7 +1889,9 @@ function isItemAvailable(itemId) {
 
 <div className={`trackingStatusHero ${trackedOrder.status}`}>
   <span>
-    {trackedOrder.status === "Payment Review"
+    {trackedOrder.status === "Payment Started"
+      ? "💳"
+      : trackedOrder.status === "Payment Review"
       ? "🧾"
       : trackedOrder.status === "Ready"
       ? "✅"
@@ -1950,7 +2053,7 @@ function isItemAvailable(itemId) {
               ) : (
                 <div className="fullscreenKitchenGrid">
                   {activeOrders.map((order) => (
-                    <div className="fullscreenKitchenCard" key={order.id}>
+                    <div className={`fullscreenKitchenCard ${order.status === "Payment Started" ? "paymentStartedOrderCard" : ""}`} key={order.id}>
                       <div className="fullscreenKitchenTop">
                         <div>
                           <small>{order.time}</small>
@@ -1988,7 +2091,13 @@ function isItemAvailable(itemId) {
                         </div>
                       </div>
 
-                                            {order.paymentProof && (
+                                            {order.status === "Payment Started" && (
+                        <div className="paymentPendingNotice">
+                          Payment proof not submitted yet. Match this order ID with the UPI/GPay note if payment is received.
+                        </div>
+                      )}
+
+                      {order.paymentProof && (
                         <div className="adminPaymentProofBox">
                           <small>Payment Screenshot</small>
                           <a href={order.paymentProof} target="_blank" rel="noreferrer">
@@ -2203,6 +2312,16 @@ function isItemAvailable(itemId) {
                 <span>Active</span>
                 <strong>{activeOrders.length}</strong>
               </div>
+
+              <div className="adminStatCard">
+                <span>Payment Started</span>
+                <strong>{paymentStartedOrders.length}</strong>
+              </div>
+
+              <div className="adminStatCard">
+                <span>Payment Review</span>
+                <strong>{paymentReviewOrders.length}</strong>
+              </div>
               {adminViewMode === "normal" && (
   <div className="analyticsPanel">
     <div className="analyticsHeader">
@@ -2399,14 +2518,14 @@ function isItemAvailable(itemId) {
                   {adminSearch
                     ? "No orders match your search."
                     : adminFilter === "active"
-                    ? "Orders will appear here after customers submit payment proof."
+                    ? "Orders will appear here as soon as customers proceed to payment."
                     : "Delivered and cancelled orders will appear here."}
                 </p>
               </div>
             ) : adminViewMode === "kitchen" ? (
               <div className="kitchenOrdersList">
                 {visibleOrders.map((order) => (
-                  <div className="kitchenOrderCard" key={order.id}>
+                  <div className={`kitchenOrderCard ${order.status === "Payment Started" ? "paymentStartedOrderCard" : ""}`} key={order.id}>
                     <div className="kitchenOrderTop">
                       <div>
                         <small>{order.time}</small>
@@ -2444,7 +2563,13 @@ function isItemAvailable(itemId) {
                       <strong>{formatPrice(order.total)}</strong>
                     </div>
 
-                    {order.paymentProof && (
+                    {order.status === "Payment Started" && (
+                        <div className="paymentPendingNotice">
+                          Payment proof not submitted yet. Match this order ID with the UPI/GPay note if payment is received.
+                        </div>
+                      )}
+
+                      {order.paymentProof && (
                       <div className="adminPaymentProofBox">
                         <small>Payment Screenshot</small>
                         <a href={order.paymentProof} target="_blank" rel="noreferrer">
@@ -2529,7 +2654,7 @@ function isItemAvailable(itemId) {
             ) : (
               <div className="ordersList">
                 {visibleOrders.map((order) => (
-                  <div className="orderCard" key={order.id}>
+                  <div className={`orderCard ${order.status === "Payment Started" ? "paymentStartedOrderCard" : ""}`} key={order.id}>
                     <div className="orderTop">
                       <div>
                         <small>{order.time}</small>
@@ -2572,7 +2697,13 @@ function isItemAvailable(itemId) {
                       <strong>{formatPrice(order.total)}</strong>
                     </div>
 
-                    {order.paymentProof && (
+                    {order.status === "Payment Started" && (
+                        <div className="paymentPendingNotice">
+                          Payment proof not submitted yet. Match this order ID with the UPI/GPay note if payment is received.
+                        </div>
+                      )}
+
+                      {order.paymentProof && (
                       <div className="adminPaymentProofBox">
                         <small>Payment Screenshot</small>
                         <a href={order.paymentProof} target="_blank" rel="noreferrer">
